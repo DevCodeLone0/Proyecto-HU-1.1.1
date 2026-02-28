@@ -78,13 +78,16 @@ function mostrarEquipos(listaEquipos) {
         teamCard.className = "team-card";
         
         var img = document.createElement("img");
+        // si el equipo tiene logo, úsalo; si no, mostrar el predeterminado
+        if (!equipo.logo) {
+            img.src = "assets/images/defaultteam.jpg";
+        } else {
         img.src = equipo.logo;
         img.alt = "Logo de " + equipo.nombre;
-          if(!equipo.logo) {
-            img.src = "assets/images/defaultteam.jpg";
+        img.className = "team-logo";
         }
-        
-        
+  
+
         var nombre = document.createElement("h4");
         nombre.textContent = equipo.nombre;
         
