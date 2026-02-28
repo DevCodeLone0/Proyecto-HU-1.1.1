@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestion De Equipos de Futbol</title>
     <link rel="stylesheet" href="Index.css">
-    <script src="Index.JS"></script>
 </head>
 <header>
     <a href="Index.html" class="logo-link">
@@ -36,7 +35,7 @@
                     <input type="text" id="teamName" placeholder="Nombre del equipo">
                 </div>
                 <div class="form-group">
-                    <label for="teamLogo">Logo del equipo:</label>
+                    <label for="teamLogo">Logo del equipo: <span class="opcional">(Opcional)</span></label>
                     <input type="file" id="teamLogo" accept="image/*">
                 </div>
                 <button type="button" onclick="addTeam()">Agregar Equipo</button>
@@ -54,6 +53,8 @@
             <p id="noResults" class="no-results" style="display:none;">No se encontraron equipos con ese nombre.</p>
         </section>
     </main>
-
-
+    
+    <script src="Index.JS"></script>
+</body>
+</html>
 

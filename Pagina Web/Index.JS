@@ -1,7 +1,7 @@
 ﻿// Array para almacenar los equipos registrados
 var equipos = [];
 
-// Función para agregar un equipo completo (nombre + logo)
+// Función para agregar un equipo (nombre + logo opcional)
 function addTeam() {
     var teamName = document.getElementById("teamName").value;
     var teamLogoInput = document.getElementById("teamLogo");
@@ -12,14 +12,35 @@ function addTeam() {
         return;
     }
 
-    // Leer el logo y agregarlo al equipo
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        // Crear objeto de equipo
+    // Si hay archivo, leerlo
+    if (file) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            // Crear objeto de equipo con logo
+            var equipo = {
+                id: Date.now(),
+                nombre: teamName,
+                logo: e.target.result
+            };
+
+            // Agregar al array de equipos
+            equipos.push(equipo);
+
+            // Limpiar los campos del formulario
+            document.getElementById("teamName").value = "";
+            document.getElementById("teamLogo").value = "";
+
+            // Mostrar los equipos actualizados
+            mostrarEquipos(equipos);
+            alert("Equipo " + teamName + " agregado correctamente.");
+        };
+        reader.readAsDataURL(file);
+    } else {
+        // Crear objeto de equipo sin logo (usará imagen por defecto)
         var equipo = {
             id: Date.now(),
             nombre: teamName,
-            logo: e.target.result
+            logo: ""
         };
 
         // Agregar al array de equipos
@@ -32,8 +53,7 @@ function addTeam() {
         // Mostrar los equipos actualizados
         mostrarEquipos(equipos);
         alert("Equipo " + teamName + " agregado correctamente.");
-    };
-    reader.readAsDataURL(file);
+    }
 }
 
 // Función para mostrar todos los equipos
@@ -60,7 +80,10 @@ function mostrarEquipos(listaEquipos) {
         var img = document.createElement("img");
         img.src = equipo.logo;
         img.alt = "Logo de " + equipo.nombre;
-        img.className = "team-logo";
+          if(!equipo.logo) {
+            img.src = "assets/images/defaultteam.jpg";
+        }
+        
         
         var nombre = document.createElement("h4");
         nombre.textContent = equipo.nombre;

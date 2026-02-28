@@ -128,6 +128,12 @@ input[type="text"]::placeholder {
   font-weight: bold;
 }
 
+.form-group label .opcional {
+  font-size: 0.85rem;
+  font-weight: normal;
+  color: #9A8C98;
+}
+
 /* Búsqueda */
 .busqueda-section {
   display: flex;
