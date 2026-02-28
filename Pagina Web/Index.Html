@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -23,16 +23,34 @@
         <h2>Bienvenido a la gestion de equipos de futbol</h2>
         <p>En esta pagina podras registrar equipos de futbol.</p>
         <br>
-        <p>Por favor ingrese el nombre del equipo</p>
-        <form id="teamForm">
-            <input type="text" id="teamName" placeholder="Nombre del equipo">
-            <button onclick="addTeam()">Agregar Equipo</button>
-            <p>ingresa el logo del equipo</p>
-            <input type="file" id="teamLogo" accept="image/*">
-            <button onclick="addTeamLogo()">Agregar Logo</button>
-        </form>
-        <h1>Equipos Registrados</h1>
-        <ul id="teamList"></ul>
+        
+        <!-- Sección de Registro -->
+        <section class="registro-section">
+            <h3>Registrar Nuevo Equipo</h3>
+            <form id="teamForm">
+                <div class="form-group">
+                    <label for="teamName">Nombre del equipo:</label>
+                    <input type="text" id="teamName" placeholder="Nombre del equipo">
+                </div>
+                <div class="form-group">
+                    <label for="teamLogo">Logo del equipo:</label>
+                    <input type="file" id="teamLogo" accept="image/*">
+                </div>
+                <button type="button" onclick="addTeam()">Agregar Equipo</button>
+            </form>
+        </section>
+
+        <!-- Sección de Visualización y Búsqueda -->
+        <section class="visualizacion-section">
+            <h2>Equipos Registrados</h2>
+            <div class="busqueda-section">
+                <input type="text" id="searchTeam" placeholder="Buscar equipo por nombre..." onkeyup="searchTeams()">
+                <button type="button" onclick="mostrarTodos()">Mostrar Todos</button>
+            </div>
+            <div id="teamList" class="team-grid"></div>
+            <p id="noResults" class="no-results" style="display:none;">No se encontraron equipos con ese nombre.</p>
+        </section>
     </main>
-</body>
-</html>
+    
+    
+

@@ -1,33 +1,114 @@
+﻿// Array para almacenar los equipos registrados
+var equipos = [];
+
+// Función para agregar un equipo completo (nombre + logo)
 function addTeam() {
     var teamName = document.getElementById("teamName").value;
-    if (teamName) {
-        var teamList = document.getElementById("teamList");
-        var listItem = document.createElement("li");
-        listItem.textContent = teamName;
-        teamList.appendChild(listItem);
-        document.getElementById("teamName").value = ""; // Limpiar el campo de texto
-    } else {
-        alert("Por favor ingrese un nombre de equipo.");
-    }
-}
-
-function addTeamLogo() {
     var teamLogoInput = document.getElementById("teamLogo");
     var file = teamLogoInput.files[0];
-    if (file) {
-        var reader = new FileReader();
-        reader.onload = function(e) {
-            var teamList = document.getElementById("teamList");
-            var listItem = document.createElement("li");
-            var img = document.createElement("img");
-            img.src = e.target.result;
-            img.alt = "Logo del equipo";
-            img.style.width = "100px"; // Ajusta el tama�o del logo
-            listItem.appendChild(img);
-            teamList.appendChild(listItem);
+
+    if (!teamName) {
+        alert("Por favor ingrese un nombre de equipo.");
+        return;
+    }
+
+    // Leer el logo y agregarlo al equipo
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        // Crear objeto de equipo
+        var equipo = {
+            id: Date.now(),
+            nombre: teamName,
+            logo: e.target.result
         };
-        reader.readAsDataURL(file);
-    } else {
-        alert("Por favor seleccione un archivo de imagen.");
+
+        // Agregar al array de equipos
+        equipos.push(equipo);
+
+        // Limpiar los campos del formulario
+        document.getElementById("teamName").value = "";
+        document.getElementById("teamLogo").value = "";
+
+        // Mostrar los equipos actualizados
+        mostrarEquipos(equipos);
+        alert("Equipo " + teamName + " agregado correctamente.");
+    };
+    reader.readAsDataURL(file);
+}
+
+// Función para mostrar todos los equipos
+function mostrarEquipos(listaEquipos) {
+    var teamList = document.getElementById("teamList");
+    var noResults = document.getElementById("noResults");
+    
+    // Limpiar la lista
+    teamList.innerHTML = "";
+
+    if (listaEquipos.length === 0) {
+        noResults.style.display = "block";
+        teamList.innerHTML = "";
+        return;
+    }
+
+    noResults.style.display = "none";
+
+    // Crear cards para cada equipo
+    listaEquipos.forEach(function(equipo) {
+        var teamCard = document.createElement("div");
+        teamCard.className = "team-card";
+        
+        var img = document.createElement("img");
+        img.src = equipo.logo;
+        img.alt = "Logo de " + equipo.nombre;
+        img.className = "team-logo";
+        
+        var nombre = document.createElement("h4");
+        nombre.textContent = equipo.nombre;
+        
+        var deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.textContent = "Eliminar";
+        deleteBtn.className = "delete-btn";
+        deleteBtn.onclick = function() {
+            eliminarEquipo(equipo.id);
+        };
+        
+        teamCard.appendChild(img);
+        teamCard.appendChild(nombre);
+        teamCard.appendChild(deleteBtn);
+        teamList.appendChild(teamCard);
+    });
+}
+
+// Función para mostrar todos los equipos
+function mostrarTodos() {
+    document.getElementById("searchTeam").value = "";
+    mostrarEquipos(equipos);
+}
+
+// Función para buscar equipos por nombre
+function searchTeams() {
+    var searchValue = document.getElementById("searchTeam").value.toLowerCase();
+    
+    if (searchValue === "") {
+        mostrarEquipos(equipos);
+        return;
+    }
+
+    var equiposFiltrados = equipos.filter(function(equipo) {
+        return equipo.nombre.toLowerCase().includes(searchValue);
+    });
+
+    mostrarEquipos(equiposFiltrados);
+}
+
+// Función para eliminar un equipo
+function eliminarEquipo(equipoId) {
+    if (confirm("¿Estás seguro de que deseas eliminar este equipo?")) {
+        equipos = equipos.filter(function(equipo) {
+            return equipo.id !== equipoId;
+        });
+        mostrarEquipos(equipos);
+        alert("Equipo eliminado correctamente.");
     }
 }
