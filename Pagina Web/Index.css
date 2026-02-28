@@ -124,7 +124,7 @@ input[type="text"]::placeholder {
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #C9ADA7;
+  color: #FFFFFF;
   font-weight: bold;
 }
 
@@ -188,6 +188,13 @@ input[type="text"]::placeholder {
   color: #C9ADA7;
   padding: 2rem;
   font-size: 1.1rem;
+}
+
+.welcome-section {
+  padding: 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 2rem;
 }
 
 /* Responsive */
