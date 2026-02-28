@@ -80,7 +80,7 @@ function mostrarEquipos(listaEquipos) {
         var img = document.createElement("img");
         // si el equipo tiene logo, úsalo; si no, mostrar el predeterminado
         if (!equipo.logo) {
-            img.src = "assets/images/defaultteam.jpg";
+            img.src = "../assets/logo.png"; // Ruta de la imagen predeterminada
         } else {
         img.src = equipo.logo;
         img.alt = "Logo de " + equipo.nombre;
