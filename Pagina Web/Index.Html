@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion De Equipos de Futbol</title>
+    <link rel="stylesheet" href="../CSS/Index.css">
+    <script src="Index.JS"></script>
+</head>
+<header>
+    <h1>Gestion De Equipos de Futbol</h1>
+</header>
+
+<body>
+    <main>
+        <h2>Bienvenido a la gestion de equipos de futbol</h2>
+        <p>En esta pagina podras registrar equipos de futbol.</p>
+        <p>Por favor ingrese el nombre del equipo</p>
+        <input type="text" id="teamName" placeholder="Nombre del equipo">
+        <button onclick="addTeam()">Agregar Equipo</button>
+        <h1>Equipos Registrados</h1>
+        <ul id="teamList"></ul>
+
+        <p>ingresa el logo del equipo</p>
+        <input type="file" id="teamLogo" accept="image/*">
+        <button onclick="addTeamLogo()">Agregar Logo</button>
+    </main>
+
+    
+</body>
+</html>
