@@ -88,7 +88,7 @@ button:hover {
   color: #FFFFFF;
 }
 
-input[type="text"], input[type="file"] {
+input[type="text"], input[type="file"], select {
   padding: 0.5rem;
   border: 1px solid #C9ADA7;
   border-radius: 4px;
@@ -97,6 +97,15 @@ input[type="text"], input[type="file"] {
   color: #22223B;
   background-color: #F2E9E4;
   margin: 0.5rem 0;
+}
+
+select {
+  cursor: pointer;
+}
+
+select option {
+  color: #22223B;
+  background-color: #F2E9E4;
 }
 
 input[type="text"]::placeholder {
