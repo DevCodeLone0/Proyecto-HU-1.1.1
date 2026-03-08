@@ -1,6 +1,9 @@
 ﻿// Array para almacenar los equipos registrados
 var equipos = [];
 
+// Array para almacenar los jugadores registrados
+var jugadores = [];
+
 // Función para agregar un equipo (nombre + logo opcional)
 function addTeam() {
     var teamName = document.getElementById("teamName").value;
@@ -32,6 +35,7 @@ function addTeam() {
 
             // Mostrar los equipos actualizados
             mostrarEquipos(equipos);
+            loadTeamsToSelect();
             alert("Equipo " + teamName + " agregado correctamente.");
         };
         reader.readAsDataURL(file);
@@ -51,8 +55,7 @@ function addTeam() {
         document.getElementById("teamLogo").value = "";
 
         // Mostrar los equipos actualizados
-        mostrarEquipos(equipos);
-        alert("Equipo " + teamName + " agregado correctamente.");
+        mostrarEquipos(equipos);        loadTeamsToSelect();        alert("Equipo " + teamName + " agregado correctamente.");
     }
 }
 
@@ -135,6 +138,74 @@ function eliminarEquipo(equipoId) {
             return equipo.id !== equipoId;
         });
         mostrarEquipos(equipos);
+        loadTeamsToSelect();
         alert("Equipo eliminado correctamente.");
     }
 }
+
+// ========== FUNCIONES PARA JUGADORES ==========
+
+// Función para cargar equipos en el select de jugadores
+function loadTeamsToSelect() {
+    var playerTeamSelect = document.getElementById("playerTeam");
+    playerTeamSelect.innerHTML = '<option value="">Selecciona un equipo</option>';
+    
+    equipos.forEach(function(equipo) {
+        var option = document.createElement("option");
+        option.value = equipo.id;
+        option.textContent = equipo.nombre;
+        playerTeamSelect.appendChild(option);
+    });
+}
+
+// Función para agregar un jugador
+function addPlayer() {
+    var playerName = document.getElementById("playerName").value;
+    var playerPosition = document.getElementById("playerPosition").value;
+    var playerTeam = document.getElementById("playerTeam").value;
+
+    // Validaciones
+    if (!playerName) {
+        alert("Por favor ingrese el nombre del jugador.");
+        return;
+    }
+
+    if (!playerPosition) {
+        alert("Por favor seleccione una posición.");
+        return;
+    }
+
+    if (!playerTeam) {
+        alert("Por favor seleccione un equipo.");
+        return;
+    }
+
+    // Encontrar el nombre del equipo seleccionado
+    var equipoSeleccionado = equipos.find(function(equipo) {
+        return equipo.id == playerTeam;
+    });
+
+    // Crear objeto de jugador
+    var jugador = {
+        id: Date.now(),
+        nombre: playerName,
+        posicion: playerPosition,
+        equipoId: playerTeam,
+        equipoNombre: equipoSeleccionado.nombre
+    };
+
+    // Agregar al array de jugadores
+    jugadores.push(jugador);
+
+    // Limpiar los campos del formulario
+    document.getElementById("playerName").value = "";
+    document.getElementById("playerPosition").value = "";
+    document.getElementById("playerTeam").value = "";
+
+    alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.nombre);
+}
+
+// Inicializar el select de equipos cuando cargue la página
+window.onload = function() {
+    loadTeamsToSelect();
+};
