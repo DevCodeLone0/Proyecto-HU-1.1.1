@@ -161,12 +161,20 @@ function loadTeamsToSelect() {
 // Función para agregar un jugador
 function addPlayer() {
     var playerName = document.getElementById("playerName").value;
+    var playerAge = document.getElementById("playerAge").value;
     var playerPosition = document.getElementById("playerPosition").value;
     var playerTeam = document.getElementById("playerTeam").value;
+    var playerImageInput = document.getElementById("playerImage");
+    var file = playerImageInput.files[0];
 
     // Validaciones
     if (!playerName) {
         alert("Por favor ingrese el nombre del jugador.");
+        return;
+    }
+
+    if (!playerAge || playerAge < 1 || playerAge > 100) {
+        alert("Por favor ingrese una edad válida (1-100).");
         return;
     }
 
@@ -185,27 +193,64 @@ function addPlayer() {
         return equipo.id == playerTeam;
     });
 
-    // Crear objeto de jugador
-    var jugador = {
-        id: Date.now(),
-        nombre: playerName,
-        posicion: playerPosition,
-        equipoId: playerTeam,
-        equipoNombre: equipoSeleccionado.nombre
-    };
+    // Si hay archivo de imagen, leerlo
+    if (file) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            // Crear objeto de jugador con imagen
+            var jugador = {
+                id: Date.now(),
+                nombre: playerName,
+                edad: playerAge,
+                posicion: playerPosition,
+                equipoId: playerTeam,
+                equipoNombre: equipoSeleccionado.nombre,
+                imagen: e.target.result
+            };
 
-    // Agregar al array de jugadores
-    jugadores.push(jugador);
+            // Agregar al array de jugadores
+            jugadores.push(jugador);
 
-    // Limpiar los campos del formulario
-    document.getElementById("playerName").value = "";
-    document.getElementById("playerPosition").value = "";
-    document.getElementById("playerTeam").value = "";
+            // Limpiar los campos del formulario
+            document.getElementById("playerName").value = "";
+            document.getElementById("playerAge").value = "";
+            document.getElementById("playerPosition").value = "";
+            document.getElementById("playerTeam").value = "";
+            document.getElementById("playerImage").value = "";
 
-    // Mostrar los jugadores actualizados
-    mostrarJugadores(jugadores);
+            // Mostrar los jugadores actualizados
+            mostrarJugadores(jugadores);
 
-    alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.nombre);
+            alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.nombre);
+        };
+        reader.readAsDataURL(file);
+    } else {
+        // Crear objeto de jugador sin imagen
+        var jugador = {
+            id: Date.now(),
+            nombre: playerName,
+            edad: playerAge,
+            posicion: playerPosition,
+            equipoId: playerTeam,
+            equipoNombre: equipoSeleccionado.nombre,
+            imagen: ""
+        };
+
+        // Agregar al array de jugadores
+        jugadores.push(jugador);
+
+        // Limpiar los campos del formulario
+        document.getElementById("playerName").value = "";
+        document.getElementById("playerAge").value = "";
+        document.getElementById("playerPosition").value = "";
+        document.getElementById("playerTeam").value = "";
+        document.getElementById("playerImage").value = "";
+
+        // Mostrar los jugadores actualizados
+        mostrarJugadores(jugadores);
+
+        alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.nombre);
+    }
 }
 
 // Función para mostrar todos los jugadores
@@ -237,9 +282,22 @@ function mostrarJugadores(listaJugadores) {
         var playerInfo = document.createElement("div");
         playerInfo.className = "player-info";
         
+        // Agregar imagen del jugador si existe
+        if (jugador.imagen) {
+            var img = document.createElement("img");
+            img.src = jugador.imagen;
+            img.alt = "Foto de " + jugador.nombre;
+            img.className = "player-photo";
+            playerInfo.appendChild(img);
+        }
+        
         var nombre = document.createElement("div");
         nombre.className = "player-name";
         nombre.textContent = jugador.nombre;
+        
+        var edad = document.createElement("div");
+        edad.className = "player-edad";
+        edad.textContent = "Edad: " + jugador.edad;
         
         var posicion = document.createElement("div");
         posicion.className = "player-position";
@@ -250,6 +308,7 @@ function mostrarJugadores(listaJugadores) {
         equipo.textContent = "Equipo: " + jugador.equipoNombre;
         
         playerInfo.appendChild(nombre);
+        playerInfo.appendChild(edad);
         playerInfo.appendChild(posicion);
         playerInfo.appendChild(equipo);
         
@@ -259,12 +318,14 @@ function mostrarJugadores(listaJugadores) {
         editMenu.innerHTML = `
             <div class="edit-menu-form">
                 <input type="text" id="edit-name-${jugador.id}" value="${jugador.nombre}" placeholder="Nombre del jugador">
+                <input type="number" id="edit-age-${jugador.id}" value="${jugador.edad}" placeholder="Edad" min="1" max="100">
                 <select id="edit-position-${jugador.id}">
                     <option value="Portero" ${jugador.posicion === 'Portero' ? 'selected' : ''}>Portero</option>
                     <option value="Defensa" ${jugador.posicion === 'Defensa' ? 'selected' : ''}>Defensa</option>
                     <option value="Medio" ${jugador.posicion === 'Medio' ? 'selected' : ''}>Medio</option>
                     <option value="Delantero" ${jugador.posicion === 'Delantero' ? 'selected' : ''}>Delantero</option>
                 </select>
+                <input type="file" id="edit-image-${jugador.id}" accept="image/*" placeholder="Cambiar imagen">
                 <select id="edit-team-${jugador.id}">
                     <option value="">Selecciona un equipo</option>
                 </select>
@@ -323,11 +384,19 @@ function closeEditMenu(jugadorId) {
 // Función para guardar cambios del jugador
 function savePlayer(jugadorId) {
     var newName = document.getElementById("edit-name-" + jugadorId).value;
+    var newAge = document.getElementById("edit-age-" + jugadorId).value;
     var newPosition = document.getElementById("edit-position-" + jugadorId).value;
     var newTeamId = document.getElementById("edit-team-" + jugadorId).value;
+    var newImageInput = document.getElementById("edit-image-" + jugadorId);
+    var file = newImageInput.files[0];
 
     if (!newName) {
         alert("El nombre del jugador no puede estar vacío.");
+        return;
+    }
+
+    if (!newAge || newAge < 1 || newAge > 100) {
+        alert("La edad debe estar entre 1 y 100.");
         return;
     }
 
@@ -346,15 +415,37 @@ function savePlayer(jugadorId) {
         return equipo.id == newTeamId;
     });
 
-    // Actualizar los datos del jugador
-    jugador.nombre = newName;
-    jugador.posicion = newPosition;
-    jugador.equipoId = newTeamId;
-    jugador.equipoNombre = equipoSeleccionado.nombre;
+    // Si hay una imagen nueva, leerla
+    if (file) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            // Actualizar los datos del jugador con imagen nueva
+            jugador.nombre = newName;
+            jugador.edad = newAge;
+            jugador.posicion = newPosition;
+            jugador.equipoId = newTeamId;
+            jugador.equipoNombre = equipoSeleccionado.nombre;
+            jugador.imagen = e.target.result;
 
-    // Volver a mostrar la lista actualizada
-    mostrarJugadores(jugadores);
-    alert("Jugador actualizado correctamente.");
+            // Volver a mostrar la lista actualizada
+            mostrarJugadores(jugadores);
+            closeEditMenu(jugadorId);
+            alert("Jugador actualizado correctamente.");
+        };
+        reader.readAsDataURL(file);
+    } else {
+        // Actualizar los datos del jugador sin cambiar imagen
+        jugador.nombre = newName;
+        jugador.edad = newAge;
+        jugador.posicion = newPosition;
+        jugador.equipoId = newTeamId;
+        jugador.equipoNombre = equipoSeleccionado.nombre;
+
+        // Volver a mostrar la lista actualizada
+        mostrarJugadores(jugadores);
+        closeEditMenu(jugadorId);
+        alert("Jugador actualizado correctamente.");
+    }
 }
 
 // Función para eliminar un jugador

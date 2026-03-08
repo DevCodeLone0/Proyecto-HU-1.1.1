@@ -245,10 +245,34 @@ input[type="text"]::placeholder {
   justify-content: center;
 }
 
+input[type="number"] {
+  padding: 0.5rem;
+  border: 1px solid #C9ADA7;
+  border-radius: 4px;
+  width: 100%;
+  max-width: 300px;
+  color: #22223B;
+  background-color: #F2E9E4;
+  margin: 0.5rem 0;
+}
+
+/* quitar flechas del input number */
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
 .player-item.edit-active {
   border-color: #C9ADA7;
   background-color: #2A2E4B;
   min-height: 240px;
+  transform: scale(1.03);
   box-shadow: 0 8px 20px rgba(149, 140, 152, 0.4);
 }
 
@@ -267,6 +291,7 @@ input[type="text"]::placeholder {
   opacity: 1;
   visibility: visible;
   width: 100%;
+  align-items: center;
 }
 
 .player-item.edit-active .player-info {
@@ -275,10 +300,25 @@ input[type="text"]::placeholder {
   display: none;
 }
 
+.player-photo {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #C9ADA7;
+  background-color: #F2E9E4;
+}
+
 .player-name {
   font-weight: bold;
   font-size: 1.1rem;
   color: #FFFFFF;
+  text-align: center;
+}
+
+.player-edad {
+  color: #F2E9E4;
+  font-size: 0.8rem;
 }
 
 .player-position {
@@ -298,40 +338,40 @@ input[type="text"]::placeholder {
   flex-direction: column;
   gap: 0.6rem;
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background-color: rgba(42, 46, 75, 0.95);
   border-radius: 6px;
   padding: 0.8rem;
+
   opacity: 0;
-  visibility: hidden;
-  transition: all 0.3s ease;
-  justify-content: center;
+  transform: scale(0.95);
+  pointer-events: none;
+
+  transition: 
+    opacity 0.25s ease,
+    transform 0.25s ease;
+
   z-index: 10;
 }
 
 .edit-menu.active {
   opacity: 1;
-  visibility: visible;
+  transform: scale(1);
+  pointer-events: all;
 }
 
 .edit-menu-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  width: 100%;
 }
 
 .edit-menu-form input,
 .edit-menu-form select {
-  padding: 0.35rem 0.4rem;
-  border: 1px solid #C9ADA7;
-  border-radius: 4px;
-  background-color: #F2E9E4;
-  color: #22223B;
-  font-size: 0.8rem;
-  font-family: Arial, sans-serif;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .edit-menu-actions {
@@ -347,6 +387,12 @@ input[type="text"]::placeholder {
   font-size: 0.8rem;
   margin: 0;
   border-radius: 4px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.edit-menu-actions button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
 .btn-save {
