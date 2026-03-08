@@ -212,8 +212,179 @@ input[type="text"]::placeholder {
   margin-bottom: 2rem;
 }
 
+/* Contenedor de Jugadores - Dos Columnas */
+.players-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.jugadores-listado {
+  display: flex;
+  flex-direction: column;
+}
+
+.players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.player-item {
+  background-color: #22223B;
+  border: 2px solid #9A8C98;
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player-item.edit-active {
+  border-color: #C9ADA7;
+  background-color: #2A2E4B;
+  min-height: 240px;
+  box-shadow: 0 8px 20px rgba(149, 140, 152, 0.4);
+}
+
+.player-item:hover {
+  border-color: #C9ADA7;
+  background-color: #2A2E4B;
+  transform: translateX(5px);
+  box-shadow: 0 3px 10px rgba(149, 140, 152, 0.3);
+}
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  opacity: 1;
+  visibility: visible;
+  width: 100%;
+}
+
+.player-item.edit-active .player-info {
+  opacity: 0;
+  visibility: hidden;
+  display: none;
+}
+
+.player-name {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #FFFFFF;
+}
+
+.player-position {
+  color: #C9ADA7;
+  font-size: 0.9rem;
+}
+
+.player-team {
+  color: #9A8C98;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+/* Menú Desplegable */
+.edit-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(42, 46, 75, 0.95);
+  border-radius: 6px;
+  padding: 0.8rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  justify-content: center;
+  z-index: 10;
+}
+
+.edit-menu.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.edit-menu-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.edit-menu-form input,
+.edit-menu-form select {
+  padding: 0.35rem 0.4rem;
+  border: 1px solid #C9ADA7;
+  border-radius: 4px;
+  background-color: #F2E9E4;
+  color: #22223B;
+  font-size: 0.8rem;
+  font-family: Arial, sans-serif;
+}
+
+.edit-menu-actions {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+  margin-top: 0.2rem;
+}
+
+.edit-menu-actions button {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  margin: 0;
+  border-radius: 4px;
+}
+
+.btn-save {
+  background-color: #9A8C98;
+}
+
+.btn-save:hover {
+  background-color: #4A4E69;
+}
+
+.btn-cancel {
+  background-color: #C9ADA7;
+}
+
+.btn-cancel:hover {
+  background-color: #FF6B6B;
+  color: #FFFFFF;
+}
+
+.btn-delete {
+  background-color: #FF6B6B;
+  color: #FFFFFF;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+  width: 100%;
+  border-radius: 4px;
+}
+
+.btn-delete:hover {
+  background-color: #CC5555;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
+  .players-container {
+    grid-template-columns: 1fr;
+  }
   .team-grid {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   }
