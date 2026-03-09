@@ -83,8 +83,17 @@ button:hover {
   width: 100%;
 }
 
-.delete-btn:hover {
-  background-color: #FF6B6B;
+.edit-btn {
+  background-color: #4A4E69;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.edit-btn:hover {
+  background-color: #9A8C98;
   color: #FFFFFF;
 }
 
@@ -188,14 +197,19 @@ input[type="text"]::placeholder {
   box-shadow: 0 5px 15px rgba(149, 140, 152, 0.3);
 }
 
-.team-logo {
-  width: 150px;
-  height: 150px;
-  object-fit: contain;
-  margin-bottom: 1rem;
-  border-radius: 8px;
-  background-color: #F2E9E4;
-  padding: 0.5rem;
+.team-card.edit-active {
+  min-height: 300px;
+  transform: scale(1.05);
+  box-shadow: 0 8px 20px rgba(149, 140, 152, 0.4);
+}
+
+.team-card.edit-active .team-logo,
+.team-card.edit-active h4,
+.team-card.edit-active .edit-btn,
+.team-card.edit-active .delete-btn {
+  opacity: 0;
+  visibility: hidden;
+  display: none;
 }
 
 .no-results {
@@ -451,4 +465,84 @@ input[type=number] {
   main {
     padding: 1rem;
   }
+}
+
+/* Menú Desplegable para Equipos */
+.edit-menu-team {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  position: absolute;
+  inset: 0;
+  background-color: rgba(42, 46, 75, 0.95);
+  border-radius: 6px;
+  padding: 0.8rem;
+
+  opacity: 0;
+  transform: scale(0.95);
+  pointer-events: none;
+
+  transition: 
+    opacity 0.25s ease,
+    transform 0.25s ease;
+
+  z-index: 10;
+}
+
+.edit-menu-team.active {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: all;
+}
+
+.edit-menu-team .edit-menu-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.edit-menu-team .edit-menu-form input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.edit-menu-team .edit-menu-actions {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+  margin-top: 0.2rem;
+}
+
+.edit-menu-team .edit-menu-actions button {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  margin: 0;
+  border-radius: 4px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.edit-menu-team .edit-menu-actions button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.edit-menu-team .btn-manage-players {
+  background-color: #4A4E69;
+  color: #FFFFFF;
+  border: none;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.edit-menu-team .btn-manage-players:hover {
+  background-color: #9A8C98;
+  color: #22223B;
+  transform: translateY(-2px);
 }

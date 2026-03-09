@@ -94,6 +94,14 @@ function mostrarEquipos(listaEquipos) {
         var nombre = document.createElement("h4");
         nombre.textContent = equipo.nombre;
         
+        var editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.textContent = "Editar";
+        editBtn.className = "edit-btn";
+        editBtn.onclick = function() {
+            toggleEditMenuTeam(teamCard, equipo);
+        };
+        
         var deleteBtn = document.createElement("button");
         deleteBtn.type = "button";
         deleteBtn.textContent = "Eliminar";
@@ -102,9 +110,25 @@ function mostrarEquipos(listaEquipos) {
             eliminarEquipo(equipo.id);
         };
         
+        var editMenu = document.createElement("div");
+        editMenu.className = "edit-menu-team";
+        editMenu.innerHTML = `
+            <div class="edit-menu-form">
+                <input type="text" id="edit-team-name-${equipo.id}" value="${equipo.nombre}" placeholder="Nombre del equipo">
+                <input type="file" id="edit-team-logo-${equipo.id}" accept="image/*" placeholder="Cambiar logo">
+            </div>
+            <div class="edit-menu-actions">
+                <button type="button" class="btn-save" onclick="saveTeam(${equipo.id})">Guardar</button>
+                <button type="button" class="btn-cancel" onclick="closeEditMenuTeam(${equipo.id})">Cancelar</button>
+            </div>
+            <button type="button" class="btn-manage-players" onclick="managePlayers(${equipo.id})">Gestionar Jugadores</button>
+        `;
+        
         teamCard.appendChild(img);
         teamCard.appendChild(nombre);
+        teamCard.appendChild(editBtn);
         teamCard.appendChild(deleteBtn);
+        teamCard.appendChild(editMenu);
         teamList.appendChild(teamCard);
     });
 }
@@ -133,8 +157,22 @@ function searchTeams() {
 
 // Función para eliminar un equipo
 function eliminarEquipo(equipoId) {
-    if (confirm("¿Estás seguro de que deseas eliminar este equipo?")) {
+    var equipo = equipos.find(function(e) {
+        return e.id == equipoId;
+    });
+    var playersOfTeam = jugadores.filter(function(jugador) {
+        return jugador.equipoId == equipoId;
+    });
 
+    var message = "¿Estás seguro de que deseas eliminar el equipo '" + equipo.nombre + "'?";
+    if (playersOfTeam.length > 0) {
+        message += "\n\nEsto también eliminará los siguientes jugadores asociados:\n";
+        playersOfTeam.forEach(function(jugador, index) {
+            message += (index + 1) + ". " + jugador.nombre + "\n";
+        });
+    }
+
+    if (confirm(message)) {
         // eliminar equipo
         equipos = equipos.filter(function(equipo) {
             return equipo.id !== equipoId;
@@ -470,8 +508,104 @@ function deletePlayer(jugadorId) {
     }
 }
 
-// Inicializar el select de equipos cuando cargue la página
-window.onload = function() {
-    loadTeamsToSelect();
-    mostrarJugadores(jugadores);
-};
+// Función para alternar el menú de edición de equipo
+function toggleEditMenuTeam(element, equipo) {
+    var editMenu = element.querySelector(".edit-menu-team");
+    if (editMenu.classList.contains("active")) {
+        editMenu.classList.remove("active");
+        element.classList.remove("edit-active");
+    } else {
+        editMenu.classList.add("active");
+        element.classList.add("edit-active");
+    }
+}
+
+// Función para cerrar el menú de edición de equipo
+function closeEditMenuTeam(equipoId) {
+    var teamList = document.getElementById("teamList");
+    var teamCards = teamList.querySelectorAll(".team-card");
+    teamCards.forEach(function(card) {
+        var editMenu = card.querySelector(".edit-menu-team");
+        editMenu.classList.remove("active");
+        card.classList.remove("edit-active");
+    });
+}
+
+// Función para guardar cambios del equipo
+function saveTeam(equipoId) {
+    var newName = document.getElementById("edit-team-name-" + equipoId).value;
+    var newLogoInput = document.getElementById("edit-team-logo-" + equipoId);
+    var file = newLogoInput.files[0];
+
+    if (!newName) {
+        alert("El nombre del equipo no puede estar vacío.");
+        return;
+    }
+
+    // Encontrar el equipo
+    var equipo = equipos.find(function(e) {
+        return e.id == equipoId;
+    });
+
+    // Si hay un logo nuevo, leerlo
+    if (file) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            // Actualizar los datos del equipo con logo nuevo
+            equipo.nombre = newName;
+            equipo.logo = e.target.result;
+
+            // Actualizar el nombre de los jugadores asociados
+            jugadores.forEach(function(jugador) {
+                if (jugador.equipoId == equipoId) {
+                    jugador.equipoNombre = newName;
+                }
+            });
+
+            // Volver a mostrar la lista actualizada
+            mostrarEquipos(equipos);
+            mostrarJugadores(jugadores);
+            loadTeamsToSelect();
+            closeEditMenuTeam(equipoId);
+            alert("Equipo actualizado correctamente.");
+        };
+        reader.readAsDataURL(file);
+    } else {
+        // Actualizar los datos del equipo sin cambiar logo
+        equipo.nombre = newName;
+
+        // Actualizar el nombre de los jugadores asociados
+        jugadores.forEach(function(jugador) {
+            if (jugador.equipoId == equipoId) {
+                jugador.equipoNombre = newName;
+            }
+        });
+
+        // Volver a mostrar la lista actualizada
+        mostrarEquipos(equipos);
+        mostrarJugadores(jugadores);
+        loadTeamsToSelect();
+        closeEditMenuTeam(equipoId);
+        alert("Equipo actualizado correctamente.");
+    }
+}
+
+// Función para gestionar jugadores del equipo
+function managePlayers(equipoId) {
+    var equipo = equipos.find(function(e) {
+        return e.id == equipoId;
+    });
+    var playersOfTeam = jugadores.filter(function(j) {
+        return j.equipoId == equipoId;
+    });
+
+    var message = "Jugadores del equipo " + equipo.nombre + ":\n\n";
+    if (playersOfTeam.length === 0) {
+        message += "No hay jugadores registrados en este equipo.";
+    } else {
+        playersOfTeam.forEach(function(jugador, index) {
+            message += (index + 1) + ". " + jugador.nombre + " - " + jugador.posicion + " - Edad: " + jugador.edad + "\n";
+        });
+    }
+    alert(message);
+}
