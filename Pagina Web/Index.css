@@ -197,6 +197,14 @@ input[type="text"]::placeholder {
   box-shadow: 0 5px 15px rgba(149, 140, 152, 0.3);
 }
 
+.team-logo {
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
 .team-card.edit-active {
   min-height: 300px;
   transform: scale(1.05);

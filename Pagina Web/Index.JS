@@ -4,6 +4,26 @@ var equipos = [];
 // Array para almacenar los jugadores registrados
 var jugadores = [];
 
+// Función para redimensionar imagen
+function resizeImage(file, maxWidth, maxHeight, callback) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var ctx = canvas.getContext('2d');
+            var ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+            canvas.width = img.width * ratio;
+            canvas.height = img.height * ratio;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            var dataURL = canvas.toDataURL('image/jpeg', 0.8);
+            callback(dataURL);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
 // Función para agregar un equipo (nombre + logo opcional)
 function addTeam() {
     var teamName = document.getElementById("teamName").value;
@@ -15,15 +35,14 @@ function addTeam() {
         return;
     }
 
-    // Si hay archivo, leerlo
+    // Si hay archivo, redimensionarlo
     if (file) {
-        var reader = new FileReader();
-        reader.onload = function(e) {
-            // Crear objeto de equipo con logo
+        resizeImage(file, 150, 150, function(dataURL) {
+            // Crear objeto de equipo con logo redimensionado
             var equipo = {
                 id: Date.now(),
                 nombre: teamName,
-                logo: e.target.result
+                logo: dataURL
             };
 
             // Agregar al array de equipos
@@ -37,8 +56,7 @@ function addTeam() {
             mostrarEquipos(equipos);
             loadTeamsToSelect();
             alert("Equipo " + teamName + " agregado correctamente.");
-        };
-        reader.readAsDataURL(file);
+        });
     } else {
         // Crear objeto de equipo sin logo (usará imagen por defecto)
         var equipo = {
@@ -547,13 +565,12 @@ function saveTeam(equipoId) {
         return e.id == equipoId;
     });
 
-    // Si hay un logo nuevo, leerlo
+    // Si hay un logo nuevo, redimensionarlo
     if (file) {
-        var reader = new FileReader();
-        reader.onload = function(e) {
+        resizeImage(file, 150, 150, function(dataURL) {
             // Actualizar los datos del equipo con logo nuevo
             equipo.nombre = newName;
-            equipo.logo = e.target.result;
+            equipo.logo = dataURL;
 
             // Actualizar el nombre de los jugadores asociados
             jugadores.forEach(function(jugador) {
@@ -568,8 +585,7 @@ function saveTeam(equipoId) {
             loadTeamsToSelect();
             closeEditMenuTeam(equipoId);
             alert("Equipo actualizado correctamente.");
-        };
-        reader.readAsDataURL(file);
+        });
     } else {
         // Actualizar los datos del equipo sin cambiar logo
         equipo.nombre = newName;
