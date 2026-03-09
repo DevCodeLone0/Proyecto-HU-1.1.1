@@ -134,12 +134,23 @@ function searchTeams() {
 // Función para eliminar un equipo
 function eliminarEquipo(equipoId) {
     if (confirm("¿Estás seguro de que deseas eliminar este equipo?")) {
+
+        // eliminar equipo
         equipos = equipos.filter(function(equipo) {
             return equipo.id !== equipoId;
         });
+
+        // eliminar jugadores de ese equipo (ELIMINACIÓN EN CASCADA)
+        jugadores = jugadores.filter(function(jugador) {
+            return jugador.equipoId !== equipoId;
+        });
+
+        // actualizar interfaz
         mostrarEquipos(equipos);
+        mostrarJugadores(jugadores);
         loadTeamsToSelect();
-        alert("Equipo eliminado correctamente.");
+
+        alert("Equipo y sus jugadores eliminados correctamente.");
     }
 }
 
