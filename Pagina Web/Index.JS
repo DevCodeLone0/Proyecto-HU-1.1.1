@@ -197,14 +197,21 @@ function eliminarEquipo(equipoId) {
         });
 
         // eliminar jugadores de ese equipo (ELIMINACIÓN EN CASCADA)
+        // Use loose comparison in case tipos no concuerdan, o convertir equipoId
         jugadores = jugadores.filter(function(jugador) {
-            return jugador.equipoId !== equipoId;
+            return jugador.equipoId != equipoId;
         });
 
         // actualizar interfaz
         mostrarEquipos(equipos);
         mostrarJugadores(jugadores);
         loadTeamsToSelect();
+
+        // si el formulario de jugador tenía seleccionado el equipo borrado, limpiar
+        var playerTeamSelect = document.getElementById("playerTeam");
+        if (playerTeamSelect && playerTeamSelect.value == equipoId.toString()) {
+            playerTeamSelect.value = "";
+        }
 
         alert("Equipo y sus jugadores eliminados correctamente.");
     }
@@ -230,7 +237,7 @@ function addPlayer() {
     var playerName = document.getElementById("playerName").value;
     var playerAge = document.getElementById("playerAge").value;
     var playerPosition = document.getElementById("playerPosition").value;
-    var playerTeam = document.getElementById("playerTeam").value;
+    var playerTeam = parseInt(document.getElementById("playerTeam").value);
     var playerImageInput = document.getElementById("playerImage");
     var file = playerImageInput.files[0];
 
@@ -270,7 +277,7 @@ function addPlayer() {
                 nombre: playerName,
                 edad: playerAge,
                 posicion: playerPosition,
-                equipoId: playerTeam,
+                equipoId: playerTeam, // ahora número
                 equipoNombre: equipoSeleccionado.nombre,
                 imagen: e.target.result
             };
@@ -298,12 +305,9 @@ function addPlayer() {
             nombre: playerName,
             edad: playerAge,
             posicion: playerPosition,
-            equipoId: playerTeam,
-            equipoNombre: equipoSeleccionado.nombre,
-            imagen: ""
+            equipoId: playerTeam // número sin imagen
         };
 
-        // Agregar al array de jugadores
         jugadores.push(jugador);
 
         // Limpiar los campos del formulario
@@ -319,6 +323,9 @@ function addPlayer() {
         alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.nombre);
     }
 }
+
+    
+
 
 // Función para mostrar todos los jugadores
 function mostrarJugadores(listaJugadores) {
@@ -453,7 +460,7 @@ function savePlayer(jugadorId) {
     var newName = document.getElementById("edit-name-" + jugadorId).value;
     var newAge = document.getElementById("edit-age-" + jugadorId).value;
     var newPosition = document.getElementById("edit-position-" + jugadorId).value;
-    var newTeamId = document.getElementById("edit-team-" + jugadorId).value;
+    var newTeamId = parseInt(document.getElementById("edit-team-" + jugadorId).value);
     var newImageInput = document.getElementById("edit-image-" + jugadorId);
     var file = newImageInput.files[0];
 
