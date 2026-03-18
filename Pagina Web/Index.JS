@@ -1,7 +1,59 @@
 const SUPABASE_URL = 'https://ocuoxlfltaelrojdkbdf.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_VD9fF-BmNxuxuyhuBKT_UA_plcEV7TF';
 
+const HEADERS = {
+  'apikey': SUPABASE_ANON_KEY,
+  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+  'Content-Type': 'application/json'
+};
+
 let currentUser = null;
+let equipos = [];
+let jugadores = [];
+
+async function supabaseFetch(endpoint, options = {}) {
+  const { method = 'GET', body, filters } = options;
+  
+  let url = `${SUPABASE_URL}/rest/v1/${endpoint}`;
+  if (filters) {
+    url += '?' + filters;
+  }
+  
+  const config = {
+    method,
+    headers: {
+      ...HEADERS,
+      ...options.headers
+    }
+  };
+  
+  if (body) {
+    config.body = JSON.stringify(body);
+  }
+  
+  const response = await fetch(url, config);
+  return response;
+}
+
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast toast--${type}`;
+  toast.textContent = message;
+  
+  container.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.classList.add('fade-out');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
 
 function initAuth() {
   const storedSession = localStorage.getItem('footballCurrentUser');
@@ -32,7 +84,7 @@ function updateHeaderAuth() {
   if (currentUser) {
     headerAuth.style.display = 'none';
     headerUser.style.display = 'flex';
-    userWelcome.textContent = 'Hola, ' + currentUser.name;
+    userWelcome.textContent = `Hola, ${escapeHtml(currentUser.name)}`;
   } else {
     headerAuth.style.display = 'flex';
     headerUser.style.display = 'none';
@@ -83,15 +135,10 @@ async function handleLogin(event) {
   const password = document.getElementById('loginPassword').value;
   
   try {
-    const users = await fetch(
-      `${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(password)}`,
-      {
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        }
-      }
-    ).then(r => r.json());
+    const response = await supabaseFetch('users', {
+      filters: `email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(password)}`
+    });
+    const users = await response.json();
     
     if (!users || users.length === 0) {
       showFormError('loginForm', 'Credenciales inválidas');
@@ -105,7 +152,7 @@ async function handleLogin(event) {
     await loadUserData();
     closeModal('loginModal');
     document.getElementById('loginForm').reset();
-    alert('Bienvenido, ' + user.name + '!');
+    showToast(`Bienvenido, ${escapeHtml(user.name)}!`, 'success');
   } catch (error) {
     showFormError('loginForm', 'Error al iniciar sesión');
   }
@@ -130,39 +177,29 @@ async function handleRegister(event) {
   }
   
   try {
-    const existing = await fetch(
-      `${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}`,
-      {
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        }
-      }
-    ).then(r => r.json());
+    const response = await supabaseFetch('users', {
+      filters: `email=eq.${encodeURIComponent(email)}`
+    });
+    const existing = await response.json();
     
     if (existing && existing.length > 0) {
       showFormError('registerForm', 'Este correo ya está registrado');
       return;
     }
     
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+    const postResponse = await supabaseFetch('users', {
       method: 'POST',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify({ name, email, password })
+      body: { name, email, password },
+      headers: { 'Prefer': 'return=representation' }
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      showFormError('registerForm', 'Error: ' + errorText);
+    if (!postResponse.ok) {
+      const errorText = await postResponse.text();
+      showFormError('registerForm', `Error: ${errorText}`);
       return;
     }
 
-    const newUser = await response.json();
+    const newUser = await postResponse.json();
     const user = Array.isArray(newUser) ? newUser[0] : newUser;
     
     currentUser = { id: user.id, name: user.name, email: user.email };
@@ -171,7 +208,7 @@ async function handleRegister(event) {
     await loadUserData();
     closeModal('registerModal');
     document.getElementById('registerForm').reset();
-    alert('Cuenta creada exitosamente. ¡Bienvenido, ' + name + '!');
+    showToast(`Cuenta creada exitosamente. ¡Bienvenido, ${escapeHtml(name)}!`, 'success');
   } catch (error) {
     showFormError('registerForm', 'Error al crear cuenta');
   }
@@ -197,13 +234,13 @@ function logout() {
     saveSession();
     updateHeaderAuth();
     clearUserData();
-    alert('Sesión cerrada correctamente.');
+    showToast('Sesión cerrada correctamente.', 'info');
   }
 }
 
 function checkAuth() {
   if (!currentUser) {
-    alert('Debes iniciar sesión para agregar equipos.');
+    showToast('Debes iniciar sesión para agregar equipos.', 'error');
     showLoginModal();
     return false;
   }
@@ -219,21 +256,16 @@ async function loadTeams() {
   if (!userId) return;
   
   try {
-    const teams = await fetch(
-      `${SUPABASE_URL}/rest/v1/teams?user_id=eq.${userId}&order=created_at.desc`,
-      {
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        }
-      }
-    ).then(r => r.json());
+    const response = await supabaseFetch('teams', {
+      filters: `user_id=eq.${userId}&order=created_at.desc`
+    });
+    const teams = await response.json();
     
     equipos = teams || [];
     mostrarEquipos(equipos);
     loadTeamsToSelect();
   } catch (error) {
-    alert('Error al cargar equipos');
+    showToast('Error al cargar equipos', 'error');
   }
 }
 
@@ -242,20 +274,15 @@ async function loadPlayers() {
   if (!userId) return;
   
   try {
-    const players = await fetch(
-      `${SUPABASE_URL}/rest/v1/players?user_id=eq.${userId}&order=created_at.desc`,
-      {
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        }
-      }
-    ).then(r => r.json());
+    const response = await supabaseFetch('players', {
+      filters: `user_id=eq.${userId}&order=created_at.desc`
+    });
+    const players = await response.json();
     
     jugadores = players || [];
     mostrarJugadores(jugadores);
   } catch (error) {
-    alert('Error al cargar jugadores');
+    showToast('Error al cargar jugadores', 'error');
   }
 }
 
@@ -266,9 +293,6 @@ function clearUserData() {
   mostrarJugadores(jugadores);
   loadTeamsToSelect();
 }
-
-let equipos = [];
-let jugadores = [];
 
 function resizeImage(file, maxWidth, maxHeight, callback) {
   const reader = new FileReader();
@@ -292,71 +316,30 @@ function resizeImage(file, maxWidth, maxHeight, callback) {
 async function addTeam() {
   if (!checkAuth()) return;
   
-  const teamName = document.getElementById("teamName").value;
+  const teamName = document.getElementById("teamName").value.trim();
   const teamLogoInput = document.getElementById("teamLogo");
   const file = teamLogoInput.files[0];
   const userId = localStorage.getItem('footballUserId');
 
   if (!teamName) {
-    alert("Por favor ingrese un nombre de equipo.");
+    showToast('Por favor ingrese un nombre de equipo.', 'error');
     return;
   }
 
-  if (file) {
-    resizeImage(file, 150, 150, async function(dataURL) {
-      try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/teams`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify({
-            user_id: userId,
-            name: teamName,
-            logo: dataURL
-          })
-        });
-
-        if (!response.ok) {
-          alert('Error al crear equipo');
-          return;
-        }
-
-        const newTeam = await response.json();
-        const equipo = Array.isArray(newTeam) ? newTeam[0] : newTeam;
-        equipos.unshift(equipo);
-
-        document.getElementById("teamName").value = "";
-        document.getElementById("teamLogo").value = "";
-
-        mostrarEquipos(equipos);
-        loadTeamsToSelect();
-        alert("Equipo " + teamName + " agregado correctamente.");
-      } catch (error) {
-        alert('Error al crear equipo');
-      }
-    });
-  } else {
+  const processTeam = async (logoData = null) => {
     try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/teams`, {
+      const response = await supabaseFetch('teams', {
         method: 'POST',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify({
+        body: {
           user_id: userId,
-          name: teamName
-        })
+          name: teamName,
+          ...(logoData && { logo: logoData })
+        },
+        headers: { 'Prefer': 'return=representation' }
       });
 
       if (!response.ok) {
-        alert('Error al crear equipo');
+        showToast('Error al crear equipo', 'error');
         return;
       }
 
@@ -369,10 +352,18 @@ async function addTeam() {
 
       mostrarEquipos(equipos);
       loadTeamsToSelect();
-      alert("Equipo " + teamName + " agregado correctamente.");
+      showToast(`Equipo "${escapeHtml(teamName)}" agregado correctamente.`, 'success');
     } catch (error) {
-      alert('Error al crear equipo');
+      showToast('Error al crear equipo', 'error');
     }
+  };
+
+  if (file) {
+    resizeImage(file, 150, 150, async function(dataURL) {
+      await processTeam(dataURL);
+    });
+  } else {
+    await processTeam();
   }
 }
 
@@ -400,7 +391,7 @@ function mostrarEquipos(listaEquipos) {
     } else {
       img.src = equipo.logo;
     }
-    img.alt = "Logo de " + equipo.name;
+    img.alt = `Logo de ${escapeHtml(equipo.name)}`;
     img.className = "team-logo";
 
     const nombre = document.createElement("h4");
@@ -426,7 +417,7 @@ function mostrarEquipos(listaEquipos) {
     editMenu.className = "edit-menu-team";
     editMenu.innerHTML = `
       <div class="edit-menu-form">
-        <input type="text" id="edit-team-name-${equipo.id}" value="${equipo.name}" placeholder="Nombre del equipo">
+        <input type="text" id="edit-team-name-${equipo.id}" value="${escapeHtml(equipo.name)}" placeholder="Nombre del equipo">
         <input type="file" id="edit-team-logo-${equipo.id}" accept="image/*" placeholder="Cambiar logo">
       </div>
       <div class="edit-menu-actions">
@@ -473,37 +464,25 @@ async function eliminarEquipo(equipoId) {
     return jugador.team_id === equipoId;
   });
 
-  let message = "¿Estás seguro de que deseas eliminar el equipo '" + equipo.name + "'?";
+  let message = `¿Estás seguro de que deseas eliminar el equipo "${escapeHtml(equipo.name)}"?`;
   if (playersOfTeam.length > 0) {
     message += "\n\nEsto también eliminará los siguientes jugadores asociados:\n";
     playersOfTeam.forEach(function(jugador, index) {
-      message += (index + 1) + ". " + jugador.name + "\n";
+      message += `${index + 1}. ${escapeHtml(jugador.name)}\n`;
     });
   }
 
   if (confirm(message)) {
     try {
-      await fetch(
-        `${SUPABASE_URL}/rest/v1/players?team_id=eq.${equipoId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          }
-        }
-      );
+      await supabaseFetch('players', {
+        method: 'DELETE',
+        filters: `team_id=eq.${equipoId}`
+      });
       
-      await fetch(
-        `${SUPABASE_URL}/rest/v1/teams?id=eq.${equipoId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          }
-        }
-      );
+      await supabaseFetch('teams', {
+        method: 'DELETE',
+        filters: `id=eq.${equipoId}`
+      });
 
       equipos = equipos.filter(function(equipo) {
         return equipo.id !== equipoId;
@@ -522,9 +501,9 @@ async function eliminarEquipo(equipoId) {
         playerTeamSelect.value = "";
       }
 
-      alert("Equipo y sus jugadores eliminados correctamente.");
+      showToast('Equipo y sus jugadores eliminados correctamente.', 'success');
     } catch (error) {
-      alert('Error al eliminar equipo');
+      showToast('Error al eliminar equipo', 'error');
     }
   }
 }
@@ -546,7 +525,7 @@ function loadTeamsToSelect() {
 async function addPlayer() {
   if (!checkAuth()) return;
   
-  const playerName = document.getElementById("playerName").value;
+  const playerName = document.getElementById("playerName").value.trim();
   const playerAge = document.getElementById("playerAge").value;
   const playerPosition = document.getElementById("playerPosition").value;
   const playerTeam = document.getElementById("playerTeam").value;
@@ -555,22 +534,22 @@ async function addPlayer() {
   const userId = localStorage.getItem('footballUserId');
 
   if (!playerName) {
-    alert("Por favor ingrese el nombre del jugador.");
+    showToast('Por favor ingrese el nombre del jugador.', 'error');
     return;
   }
 
   if (!playerAge || playerAge < 1 || playerAge > 100) {
-    alert("Por favor ingrese una edad válida (1-100).");
+    showToast('Por favor ingrese una edad válida (1-100).', 'error');
     return;
   }
 
   if (!playerPosition) {
-    alert("Por favor seleccione una posición.");
+    showToast('Por favor seleccione una posición.', 'error');
     return;
   }
 
   if (!playerTeam) {
-    alert("Por favor seleccione un equipo.");
+    showToast('Por favor seleccione un equipo.', 'error');
     return;
   }
 
@@ -578,64 +557,20 @@ async function addPlayer() {
     return equipo.id === playerTeam;
   });
 
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-      try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/players`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify({
-            user_id: userId,
-            team_id: playerTeam,
-            name: playerName,
-            age: playerAge,
-            position: playerPosition,
-            team_name: equipoSeleccionado.name,
-            image: e.target.result
-          })
-        });
-
-        const newPlayer = await response.json();
-        const jugador = Array.isArray(newPlayer) ? newPlayer[0] : newPlayer;
-        jugadores.unshift(jugador);
-
-        document.getElementById("playerName").value = "";
-        document.getElementById("playerAge").value = "";
-        document.getElementById("playerPosition").value = "";
-        document.getElementById("playerTeam").value = "";
-        document.getElementById("playerImage").value = "";
-
-        mostrarJugadores(jugadores);
-        alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.name);
-      } catch (error) {
-        alert('Error al crear jugador');
-      }
-    };
-    reader.readAsDataURL(file);
-  } else {
+  const processPlayer = async (imageData = null) => {
     try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/players`, {
+      const response = await supabaseFetch('players', {
         method: 'POST',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify({
+        body: {
           user_id: userId,
           team_id: playerTeam,
           name: playerName,
           age: playerAge,
           position: playerPosition,
-          team_name: equipoSeleccionado.name
-        })
+          team_name: equipoSeleccionado.name,
+          ...(imageData && { image: imageData })
+        },
+        headers: { 'Prefer': 'return=representation' }
       });
 
       const newPlayer = await response.json();
@@ -649,10 +584,18 @@ async function addPlayer() {
       document.getElementById("playerImage").value = "";
 
       mostrarJugadores(jugadores);
-      alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.name);
+      showToast(`Jugador "${escapeHtml(playerName)}" agregado correctamente al equipo ${escapeHtml(equipoSeleccionado.name)}`, 'success');
     } catch (error) {
-      alert('Error al crear jugador');
+      showToast('Error al crear jugador', 'error');
     }
+  };
+
+  if (file) {
+    resizeImage(file, 150, 150, async function(dataURL) {
+      await processPlayer(dataURL);
+    });
+  } else {
+    await processPlayer();
   }
 }
 
@@ -687,7 +630,7 @@ function mostrarJugadores(listaJugadores) {
     if (jugador.image) {
       const img = document.createElement("img");
       img.src = jugador.image;
-      img.alt = "Foto de " + jugador.name;
+      img.alt = `Foto de ${escapeHtml(jugador.name)}`;
       img.className = "player-photo";
       playerInfo.appendChild(img);
     }
@@ -698,15 +641,15 @@ function mostrarJugadores(listaJugadores) {
     
     const edad = document.createElement("div");
     edad.className = "player-edad";
-    edad.textContent = "Edad: " + jugador.age;
+    edad.textContent = `Edad: ${jugador.age}`;
     
     const posicion = document.createElement("div");
     posicion.className = "player-position";
-    posicion.textContent = "Posición: " + jugador.position;
+    posicion.textContent = `Posición: ${jugador.position}`;
     
     const equipo = document.createElement("div");
     equipo.className = "player-team";
-    equipo.textContent = "Equipo: " + jugador.team_name;
+    equipo.textContent = `Equipo: ${escapeHtml(jugador.team_name)}`;
     
     playerInfo.appendChild(nombre);
     playerInfo.appendChild(edad);
@@ -717,7 +660,7 @@ function mostrarJugadores(listaJugadores) {
     editMenu.className = "edit-menu";
     editMenu.innerHTML = `
       <div class="edit-menu-form">
-        <input type="text" id="edit-name-${jugador.id}" value="${jugador.name}" placeholder="Nombre del jugador">
+        <input type="text" id="edit-name-${jugador.id}" value="${escapeHtml(jugador.name)}" placeholder="Nombre del jugador">
         <input type="number" id="edit-age-${jugador.id}" value="${jugador.age}" placeholder="Edad" min="1" max="100">
         <select id="edit-position-${jugador.id}">
           <option value="Portero" ${jugador.position === 'Portero' ? 'selected' : ''}>Portero</option>
@@ -783,7 +726,7 @@ function closeEditMenu(jugadorId) {
 }
 
 async function savePlayer(jugadorId) {
-  const newName = document.getElementById("edit-name-" + jugadorId).value;
+  const newName = document.getElementById("edit-name-" + jugadorId).value.trim();
   const newAge = document.getElementById("edit-age-" + jugadorId).value;
   const newPosition = document.getElementById("edit-position-" + jugadorId).value;
   const newTeamId = document.getElementById("edit-team-" + jugadorId).value;
@@ -791,17 +734,17 @@ async function savePlayer(jugadorId) {
   const file = newImageInput.files[0];
 
   if (!newName) {
-    alert("El nombre del jugador no puede estar vacío.");
+    showToast('El nombre del jugador no puede estar vacío.', 'error');
     return;
   }
 
   if (!newAge || newAge < 1 || newAge > 100) {
-    alert("La edad debe estar entre 1 y 100.");
+    showToast('La edad debe estar entre 1 y 100.', 'error');
     return;
   }
 
   if (!newTeamId) {
-    alert("Debe seleccionar un equipo.");
+    showToast('Debe seleccionar un equipo.', 'error');
     return;
   }
 
@@ -818,12 +761,10 @@ async function savePlayer(jugadorId) {
   };
 
   if (file) {
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-      updateData.image = e.target.result;
+    resizeImage(file, 150, 150, async function(dataURL) {
+      updateData.image = dataURL;
       await performPlayerUpdate(jugadorId, updateData);
-    };
-    reader.readAsDataURL(file);
+    });
   } else {
     await performPlayerUpdate(jugadorId, updateData);
   }
@@ -833,18 +774,11 @@ async function performPlayerUpdate(jugadorId, updateData) {
   try {
     const userId = localStorage.getItem('footballUserId');
     
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/players?id=eq.${jugadorId}&user_id=eq.${userId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
-      }
-    );
+    await supabaseFetch('players', {
+      method: 'PATCH',
+      filters: `id=eq.${jugadorId}&user_id=eq.${userId}`,
+      body: updateData
+    });
 
     const index = jugadores.findIndex(j => j.id === jugadorId);
     if (index !== -1) {
@@ -853,33 +787,27 @@ async function performPlayerUpdate(jugadorId, updateData) {
 
     mostrarJugadores(jugadores);
     closeEditMenu(jugadorId);
-    alert("Jugador actualizado correctamente.");
+    showToast('Jugador actualizado correctamente.', 'success');
   } catch (error) {
-    alert('Error al actualizar jugador');
+    showToast('Error al actualizar jugador', 'error');
   }
 }
 
 async function deletePlayer(jugadorId) {
   if (confirm("¿Estás seguro de que deseas eliminar este jugador?")) {
     try {
-      await fetch(
-        `${SUPABASE_URL}/rest/v1/players?id=eq.${jugadorId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          }
-        }
-      );
+      await supabaseFetch('players', {
+        method: 'DELETE',
+        filters: `id=eq.${jugadorId}`
+      });
 
       jugadores = jugadores.filter(function(jugador) {
         return jugador.id !== jugadorId;
       });
       mostrarJugadores(jugadores);
-      alert("Jugador eliminado correctamente.");
+      showToast('Jugador eliminado correctamente.', 'success');
     } catch (error) {
-      alert('Error al eliminar jugador');
+      showToast('Error al eliminar jugador', 'error');
     }
   }
 }
@@ -908,12 +836,12 @@ function closeEditMenuTeam(equipoId) {
 }
 
 async function saveTeam(equipoId) {
-  const newName = document.getElementById("edit-team-name-" + equipoId).value;
+  const newName = document.getElementById("edit-team-name-" + equipoId).value.trim();
   const newLogoInput = document.getElementById("edit-team-logo-" + equipoId);
   const file = newLogoInput.files[0];
 
   if (!newName) {
-    alert("El nombre del equipo no puede estar vacío.");
+    showToast('El nombre del equipo no puede estar vacío.', 'error');
     return;
   }
 
@@ -933,32 +861,18 @@ async function performTeamUpdate(equipoId, updateData) {
   try {
     const userId = localStorage.getItem('footballUserId');
     
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/teams?id=eq.${equipoId}&user_id=eq.${userId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
-      }
-    );
+    await supabaseFetch('teams', {
+      method: 'PATCH',
+      filters: `id=eq.${equipoId}&user_id=eq.${userId}`,
+      body: updateData
+    });
 
     if (updateData.name) {
-      await fetch(
-        `${SUPABASE_URL}/rest/v1/players?team_id=eq.${equipoId}&user_id=eq.${userId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ team_name: updateData.name })
-        }
-      );
+      await supabaseFetch('players', {
+        method: 'PATCH',
+        filters: `team_id=eq.${equipoId}&user_id=eq.${userId}`,
+        body: { team_name: updateData.name }
+      });
       
       jugadores.forEach(function(jugador) {
         if (jugador.team_id === equipoId) {
@@ -976,9 +890,9 @@ async function performTeamUpdate(equipoId, updateData) {
     mostrarJugadores(jugadores);
     loadTeamsToSelect();
     closeEditMenuTeam(equipoId);
-    alert("Equipo actualizado correctamente.");
+    showToast('Equipo actualizado correctamente.', 'success');
   } catch (error) {
-    alert('Error al actualizar equipo');
+    showToast('Error al actualizar equipo', 'error');
   }
 }
 
@@ -990,12 +904,12 @@ function managePlayers(equipoId) {
     return j.team_id === equipoId;
   });
 
-  let message = "Jugadores del equipo " + equipo.name + ":\n\n";
+  let message = `Jugadores del equipo ${escapeHtml(equipo.name)}:\n\n`;
   if (playersOfTeam.length === 0) {
     message += "No hay jugadores registrados en este equipo.";
   } else {
     playersOfTeam.forEach(function(jugador, index) {
-      message += (index + 1) + ". " + jugador.name + " - " + jugador.position + " - Edad: " + jugador.age + "\n";
+      message += `${index + 1}. ${escapeHtml(jugador.name)} - ${jugador.position} - Edad: ${jugador.age}\n`;
     });
   }
   alert(message);

@@ -7,7 +7,8 @@
     <title>Gestion De Equipos de Futbol</title>
     <link rel="stylesheet" href="Index.css">
 </head>
-<header>
+<body>
+    <header>
     <a href="Index.html" class="logo-link">
         <img src="../assets/logo.png" alt="Logo" class="header-logo">
     </a>
@@ -23,9 +24,8 @@
         <span class="user-welcome" id="userWelcome"></span>
         <button type="button" class="auth-btn" id="btnLogout" onclick="logout()">Cerrar Sesión</button>
     </div>
-</header>
+    </header>
 
-<body>
     <main>
         <div class="welcome-section">
             <h2>Bienvenido a la gestion de equipos de futbol</h2>
@@ -41,11 +41,11 @@
             <form id="teamForm">
                 <div class="form-group">
                     <label for="teamName">Nombre del equipo:</label>
-                    <input type="text" id="teamName" placeholder="Nombre del equipo">
+                    <input type="text" id="teamName" placeholder="Nombre del equipo" aria-label="Nombre del equipo" required>
                 </div>
                 <div class="form-group">
                     <label for="teamLogo">Logo del equipo: <span class="opcional">(Opcional)</span></label>
-                    <input type="file" id="teamLogo" accept="image/*">
+                    <input type="file" id="teamLogo" accept="image/*" aria-label="Logo del equipo">
                 </div>
                 <button type="button" onclick="addTeam()">Agregar Equipo</button>
             </form>
@@ -59,11 +59,11 @@
                 <form id="playerForm">
                     <div class="form-group">
                         <label for="playerName">Nombre del jugador:</label>
-                        <input type="text" id="playerName" placeholder="Nombre completo del jugador">
+                        <input type="text" id="playerName" placeholder="Nombre completo del jugador" aria-label="Nombre del jugador" required>
                     </div>
                     <div class="form-group">
                         <label for="playerPosition">Posición:</label>
-                        <select id="playerPosition">
+                        <select id="playerPosition" aria-label="Posición del jugador" required>
                             <option value="">Selecciona una posición</option>
                             <option value="Portero">Portero</option>
                             <option value="Defensa">Defensa</option>
@@ -73,15 +73,15 @@
                     </div>
                     <div class="form-group">
                         <label for="playerAge">Edad:</label>
-                        <input type="number" id="playerAge" placeholder="Edad del jugador" min="1" max="100">
+                        <input type="number" id="playerAge" placeholder="Edad del jugador" min="1" max="100" aria-label="Edad del jugador" required>
                     </div>
                     <div class="form-group">
                         <label for="playerImage">Imagen del jugador: <span class="opcional">(Opcional)</span></label>
-                        <input type="file" id="playerImage" accept="image/*">
+                        <input type="file" id="playerImage" accept="image/*" aria-label="Imagen del jugador">
                     </div>
                     <div class="form-group">
                         <label for="playerTeam">Equipo:</label>
-                        <select id="playerTeam">
+                        <select id="playerTeam" aria-label="Equipo del jugador" required>
                             <option value="">Selecciona un equipo</option>
                         </select>
                     </div>
@@ -109,11 +109,13 @@
         </section>
     </main>
 
+    <div id="toastContainer" class="toast-container"></div>
+
     <!-- Modal Login -->
-    <div id="loginModal" class="modal">
+    <div id="loginModal" class="modal" role="dialog" aria-labelledby="loginModalTitle" aria-modal="true">
         <div class="modal-content">
-            <span class="modal-close" onclick="closeModal('loginModal')">&times;</span>
-            <h2>Iniciar Sesión</h2>
+            <span class="modal-close" onclick="closeModal('loginModal')" role="button" aria-label="Cerrar">&times;</span>
+            <h2 id="loginModalTitle">Iniciar Sesión</h2>
             <form id="loginForm" onsubmit="handleLogin(event)">
                 <div class="form-group">
                     <label for="loginEmail">Correo electrónico:</label>
@@ -130,10 +132,10 @@
     </div>
 
     <!-- Modal Registro -->
-    <div id="registerModal" class="modal">
+    <div id="registerModal" class="modal" role="dialog" aria-labelledby="registerModalTitle" aria-modal="true">
         <div class="modal-content">
-            <span class="modal-close" onclick="closeModal('registerModal')">&times;</span>
-            <h2>Crear Cuenta</h2>
+            <span class="modal-close" onclick="closeModal('registerModal')" role="button" aria-label="Cerrar">&times;</span>
+            <h2 id="registerModalTitle">Crear Cuenta</h2>
             <form id="registerForm" onsubmit="handleRegister(event)">
                 <div class="form-group">
                     <label for="registerName">Nombre:</label>
