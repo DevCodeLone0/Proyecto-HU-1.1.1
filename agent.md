@@ -1,38 +1,65 @@
-# 🧠 OpenCode Agent Config
+# Agent Configuration
 
-## Rol
+## Stack Tecnológico
+- **Frontend:** HTML5, CSS3, JavaScript (ES6+)
+- **Sin frameworks** (vanilla JS puro)
+- **Estructura:** Carpeta `Pagina Web/` con archivos Index.html, Index.css, Index.JS
 
-Eres un agente de desarrollo de software que trabaja directamente sobre el código del proyecto.
+## Convenciones de Código
 
-## Objetivo
+### Nombres de archivos
+- Usar PascalCase para archivos JS: `Index.JS`, `MiComponente.JS`
+- Usar kebab-case para assets y recursos: `mi-imagen.png`, `estilos-generales.css`
 
-Analizar, modificar y mejorar el código existente en el workspace.
+### Nomenclatura en código
+- **Variables y funciones:** camelCase (`miVariable`, `obtenerDatos`)
+- **Constantes:** UPPER_SNAKE_CASE para valores globales (`API_URL`, `MAX_INTENTOS`)
+- **Clases:** PascalCase (`class MiComponente`)
+- **IDs y clases CSS:** kebab-case (`.boton-principal`, `#menu-principal`)
 
-## Capacidades
+### Estructura HTML
+- Usar etiquetas semánticas (`<header>`, `<nav>`, `<main>`, `<section>`, `<footer>`)
+- Indentación: 2 espacios
+- Atributos en orden: `id`, `class`, `data-*`, `src/href`, `alt/title`
 
-* Leer archivos del proyecto
-* Modificar archivos existentes
-* Crear nuevos archivos si es necesario
-* Refactorizar código
-* Agregar funcionalidades
+### Estructura CSS
+- Metodología: BEM para naming (`.bloque__elemento--modificador`)
+- Orden de propiedades: posicionamiento → box-model → tipografía → visuales → misc
+- Usar variables CSS para colores y espaciados
+- Mobile-first en media queries
 
-## Reglas importantes
+### Estructura JavaScript
+- Funciones pequeñas y con propósito único
+- Comentarios JSDoc para funciones públicas
+- Manejar errores con try/catch
+- Evitar variables globales excesivas
 
-* SIEMPRE aplicar los cambios directamente en los archivos
-* NO solo sugerir código, sino escribirlo en el proyecto
-* Mantener el código limpio y organizado
-* No romper funcionalidad existente
+## Prohibiciones
 
-## Comportamiento
+### Seguridad
+- ❌ NO generar URLs sin validar
+- ❌ NO hardcodear credenciales, API keys o secretos
+- ❌ NO hacer logging de información sensible
 
-* Explica brevemente los cambios realizados
-* Luego aplica los cambios automáticamente
+### Código
+- ❌ NO usar `eval()` bajo ninguna circunstancia
+- ❌ NO usar `innerHTML` con datos no sanitizados (usar textContent/createElement)
+- ❌ NO comentar código obsoleto (eliminar, no dejar comentado)
+- ❌ NO usar `var` (usar `const` o `let`)
+- ❌ NO usar `==` (usar siempre `===`)
 
-## Contexto del proyecto
+### Arquitectura
+- ❌ NO agregar dependencias externas sin autorización expresa
+- ❌ NO crear archivos fuera de `Pagina Web/` o `assets/`
+- ❌ NO modificar archivos que no sean relevantes para la tarea
 
-Proyecto web con HTML, CSS y JavaScript
+## Workflow de desarrollo
+1. Entender el requerimiento antes de codificar
+2. Verificar archivos existentes para seguir patrones
+3. Implementar cambios pequeños y verificables
+4. Si hay tests, ejecutarlos tras cambios
+5. No hacer commit sin autorización explícita
 
-## Modo agente
-
-write: true
-auto_apply: true
+## Comandos disponibles
+- `npm run lint` - Validar código (si existe configuración)
+- `npm run test` - Ejecutar tests (si existen)
