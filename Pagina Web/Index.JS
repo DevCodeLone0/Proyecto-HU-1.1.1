@@ -1,25 +1,15 @@
-// ========== SISTEMA DE AUTENTICACIÓN ==========
+const API_URL = 'http://localhost:3000/api';
 
 let currentUser = null;
-let users = [];
 
 function initAuth() {
-  const storedUsers = localStorage.getItem('footballUsers');
   const storedSession = localStorage.getItem('footballCurrentUser');
-  
-  if (storedUsers) {
-    users = JSON.parse(storedUsers);
-  }
   
   if (storedSession) {
     currentUser = JSON.parse(storedSession);
     updateHeaderAuth();
     loadUserData();
   }
-}
-
-function saveUsers() {
-  localStorage.setItem('footballUsers', JSON.stringify(users));
 }
 
 function saveSession() {
@@ -82,28 +72,39 @@ function switchToLogin() {
   showLoginModal();
 }
 
-function handleLogin(event) {
+async function handleLogin(event) {
   event.preventDefault();
   
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
   
-  const user = users.find(u => u.email === email && u.password === password);
-  
-  if (user) {
-    currentUser = { id: user.id, name: user.name, email: user.email };
+  try {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      showFormError('loginForm', data.error || 'Error en el servidor');
+      return;
+    }
+
+    currentUser = data;
     saveSession();
     updateHeaderAuth();
-    loadUserData();
+    await loadUserData();
     closeModal('loginModal');
     document.getElementById('loginForm').reset();
-    alert('Bienvenido, ' + user.name + '!');
-  } else {
-    showFormError('loginForm', 'Correo o contraseña incorrectos');
+    alert('Bienvenido, ' + data.name + '!');
+  } catch (error) {
+    showFormError('loginForm', 'No se pudo conectar al servidor');
   }
 }
 
-function handleRegister(event) {
+async function handleRegister(event) {
   event.preventDefault();
   
   const name = document.getElementById('registerName').value.trim();
@@ -116,30 +117,30 @@ function handleRegister(event) {
     return;
   }
   
-  if (users.some(u => u.email === email)) {
-    showFormError('registerForm', 'Este correo ya está registrado');
-    return;
+  try {
+    const response = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      showFormError('registerForm', data.error || 'Error en el servidor');
+      return;
+    }
+
+    currentUser = data;
+    saveSession();
+    updateHeaderAuth();
+    await loadUserData();
+    closeModal('registerModal');
+    document.getElementById('registerForm').reset();
+    alert('Cuenta creada exitosamente. ¡Bienvenido, ' + name + '!');
+  } catch (error) {
+    showFormError('registerForm', 'No se pudo conectar al servidor');
   }
-  
-  const newUser = {
-    id: Date.now(),
-    name: name,
-    email: email,
-    password: password,
-    teams: [],
-    players: []
-  };
-  
-  users.push(newUser);
-  saveUsers();
-  
-  currentUser = { id: newUser.id, name: newUser.name, email: newUser.email };
-  saveSession();
-  updateHeaderAuth();
-  loadUserData();
-  closeModal('registerModal');
-  document.getElementById('registerForm').reset();
-  alert('Cuenta creada exitosamente. ¡Bienvenido, ' + name + '!');
 }
 
 function showFormError(formId, message) {
@@ -166,27 +167,41 @@ function logout() {
   }
 }
 
-function getCurrentUserData() {
-  return users.find(u => u.id === currentUser.id);
+function checkAuth() {
+  if (!currentUser) {
+    alert('Debes iniciar sesión para agregar equipos.');
+    showLoginModal();
+    return false;
+  }
+  return true;
 }
 
-function saveUserData() {
-  const userIndex = users.findIndex(u => u.id === currentUser.id);
-  if (userIndex !== -1) {
-    users[userIndex].teams = equipos;
-    users[userIndex].players = jugadores;
-    saveUsers();
+async function loadUserData() {
+  await Promise.all([loadTeams(), loadPlayers()]);
+}
+
+async function loadTeams() {
+  try {
+    const response = await fetch(`${API_URL}/teams`, {
+      headers: { 'x-user-id': currentUser.id }
+    });
+    equipos = await response.json();
+    mostrarEquipos(equipos);
+    loadTeamsToSelect();
+  } catch (error) {
+    alert('Error al cargar equipos');
   }
 }
 
-function loadUserData() {
-  const userData = getCurrentUserData();
-  if (userData) {
-    equipos = userData.teams || [];
-    jugadores = userData.players || [];
-    mostrarEquipos(equipos);
+async function loadPlayers() {
+  try {
+    const response = await fetch(`${API_URL}/players`, {
+      headers: { 'x-user-id': currentUser.id }
+    });
+    jugadores = await response.json();
     mostrarJugadores(jugadores);
-    loadTeamsToSelect();
+  } catch (error) {
+    alert('Error al cargar jugadores');
   }
 }
 
@@ -198,16 +213,9 @@ function clearUserData() {
   loadTeamsToSelect();
 }
 
-function checkAuth() {
-  if (!currentUser) {
-    alert('Debes iniciar sesión para agregar equipos.');
-    showLoginModal();
-    return false;
-  }
-  return true;
+function getAuthHeaders() {
+  return { 'x-user-id': currentUser.id };
 }
-
-// ========== GESTIÓN DE EQUIPOS ==========
 
 let equipos = [];
 let jugadores = [];
@@ -231,7 +239,7 @@ function resizeImage(file, maxWidth, maxHeight, callback) {
   reader.readAsDataURL(file);
 }
 
-function addTeam() {
+async function addTeam() {
   if (!checkAuth()) return;
   
   const teamName = document.getElementById("teamName").value;
@@ -244,15 +252,53 @@ function addTeam() {
   }
 
   if (file) {
-    resizeImage(file, 150, 150, function(dataURL) {
-      const equipo = {
-        id: Date.now(),
-        nombre: teamName,
-        logo: dataURL
-      };
+    resizeImage(file, 150, 150, async function(dataURL) {
+      try {
+        const response = await fetch(`${API_URL}/teams`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
+          body: JSON.stringify({ name: teamName, logo: dataURL })
+        });
 
-      equipos.push(equipo);
-      saveUserData();
+        if (!response.ok) {
+          alert('Error al crear equipo');
+          return;
+        }
+
+        const equipo = await response.json();
+        equipos.unshift(equipo);
+
+        document.getElementById("teamName").value = "";
+        document.getElementById("teamLogo").value = "";
+
+        mostrarEquipos(equipos);
+        loadTeamsToSelect();
+        alert("Equipo " + teamName + " agregado correctamente.");
+      } catch (error) {
+        alert('Error al conectar con el servidor');
+      }
+    });
+  } else {
+    try {
+      const response = await fetch(`${API_URL}/teams`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({ name: teamName })
+      });
+
+      if (!response.ok) {
+        alert('Error al crear equipo');
+        return;
+      }
+
+      const equipo = await response.json();
+      equipos.unshift(equipo);
 
       document.getElementById("teamName").value = "";
       document.getElementById("teamLogo").value = "";
@@ -260,23 +306,9 @@ function addTeam() {
       mostrarEquipos(equipos);
       loadTeamsToSelect();
       alert("Equipo " + teamName + " agregado correctamente.");
-    });
-  } else {
-    const equipo = {
-      id: Date.now(),
-      nombre: teamName,
-      logo: ""
-    };
-
-    equipos.push(equipo);
-    saveUserData();
-
-    document.getElementById("teamName").value = "";
-    document.getElementById("teamLogo").value = "";
-
-    mostrarEquipos(equipos);
-    loadTeamsToSelect();
-    alert("Equipo " + teamName + " agregado correctamente.");
+    } catch (error) {
+      alert('Error al conectar con el servidor');
+    }
   }
 }
 
@@ -304,11 +336,11 @@ function mostrarEquipos(listaEquipos) {
     } else {
       img.src = equipo.logo;
     }
-    img.alt = "Logo de " + equipo.nombre;
+    img.alt = "Logo de " + equipo.name;
     img.className = "team-logo";
 
     const nombre = document.createElement("h4");
-    nombre.textContent = equipo.nombre;
+    nombre.textContent = equipo.name;
     
     const editBtn = document.createElement("button");
     editBtn.type = "button";
@@ -330,7 +362,7 @@ function mostrarEquipos(listaEquipos) {
     editMenu.className = "edit-menu-team";
     editMenu.innerHTML = `
       <div class="edit-menu-form">
-        <input type="text" id="edit-team-name-${equipo.id}" value="${equipo.nombre}" placeholder="Nombre del equipo">
+        <input type="text" id="edit-team-name-${equipo.id}" value="${equipo.name}" placeholder="Nombre del equipo">
         <input type="file" id="edit-team-logo-${equipo.id}" accept="image/*" placeholder="Cambiar logo">
       </div>
       <div class="edit-menu-actions">
@@ -363,52 +395,63 @@ function searchTeams() {
   }
 
   const equiposFiltrados = equipos.filter(function(equipo) {
-    return equipo.nombre.toLowerCase().includes(searchValue);
+    return equipo.name.toLowerCase().includes(searchValue);
   });
 
   mostrarEquipos(equiposFiltrados);
 }
 
-function eliminarEquipo(equipoId) {
+async function eliminarEquipo(equipoId) {
   const equipo = equipos.find(function(e) {
     return e.id === equipoId;
   });
   const playersOfTeam = jugadores.filter(function(jugador) {
-    return jugador.equipoId === equipoId;
+    return jugador.team_id === equipoId;
   });
 
-  let message = "¿Estás seguro de que deseas eliminar el equipo '" + equipo.nombre + "'?";
+  let message = "¿Estás seguro de que deseas eliminar el equipo '" + equipo.name + "'?";
   if (playersOfTeam.length > 0) {
     message += "\n\nEsto también eliminará los siguientes jugadores asociados:\n";
     playersOfTeam.forEach(function(jugador, index) {
-      message += (index + 1) + ". " + jugador.nombre + "\n";
+      message += (index + 1) + ". " + jugador.name + "\n";
     });
   }
 
   if (confirm(message)) {
-    equipos = equipos.filter(function(equipo) {
-      return equipo.id !== equipoId;
-    });
+    try {
+      const response = await fetch(`${API_URL}/teams/${equipoId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
 
-    jugadores = jugadores.filter(function(jugador) {
-      return jugador.equipoId !== equipoId;
-    });
+      if (!response.ok) {
+        alert('Error al eliminar equipo');
+        return;
+      }
 
-    saveUserData();
-    mostrarEquipos(equipos);
-    mostrarJugadores(jugadores);
-    loadTeamsToSelect();
+      equipos = equipos.filter(function(equipo) {
+        return equipo.id !== equipoId;
+      });
 
-    const playerTeamSelect = document.getElementById("playerTeam");
-    if (playerTeamSelect && playerTeamSelect.value === equipoId.toString()) {
-      playerTeamSelect.value = "";
+      jugadores = jugadores.filter(function(jugador) {
+        return jugador.team_id !== equipoId;
+      });
+
+      mostrarEquipos(equipos);
+      mostrarJugadores(jugadores);
+      loadTeamsToSelect();
+
+      const playerTeamSelect = document.getElementById("playerTeam");
+      if (playerTeamSelect && playerTeamSelect.value === equipoId.toString()) {
+        playerTeamSelect.value = "";
+      }
+
+      alert("Equipo y sus jugadores eliminados correctamente.");
+    } catch (error) {
+      alert('Error al conectar con el servidor');
     }
-
-    alert("Equipo y sus jugadores eliminados correctamente.");
   }
 }
-
-// ========== GESTIÓN DE JUGADORES ==========
 
 function loadTeamsToSelect() {
   const playerTeamSelect = document.getElementById("playerTeam");
@@ -419,12 +462,12 @@ function loadTeamsToSelect() {
   equipos.forEach(function(equipo) {
     const option = document.createElement("option");
     option.value = equipo.id;
-    option.textContent = equipo.nombre;
+    option.textContent = equipo.name;
     playerTeamSelect.appendChild(option);
   });
 }
 
-function addPlayer() {
+async function addPlayer() {
   if (!checkAuth()) return;
   
   const playerName = document.getElementById("playerName").value;
@@ -460,19 +503,69 @@ function addPlayer() {
 
   if (file) {
     const reader = new FileReader();
-    reader.onload = function(e) {
-      const jugador = {
-        id: Date.now(),
-        nombre: playerName,
-        edad: playerAge,
-        posicion: playerPosition,
-        equipoId: playerTeam,
-        equipoNombre: equipoSeleccionado.nombre,
-        imagen: e.target.result
-      };
+    reader.onload = async function(e) {
+      try {
+        const response = await fetch(`${API_URL}/players`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
+          body: JSON.stringify({
+            name: playerName,
+            age: playerAge,
+            position: playerPosition,
+            teamId: playerTeam,
+            teamName: equipoSeleccionado.name,
+            image: e.target.result
+          })
+        });
 
-      jugadores.push(jugador);
-      saveUserData();
+        if (!response.ok) {
+          alert('Error al crear jugador');
+          return;
+        }
+
+        const jugador = await response.json();
+        jugadores.unshift(jugador);
+
+        document.getElementById("playerName").value = "";
+        document.getElementById("playerAge").value = "";
+        document.getElementById("playerPosition").value = "";
+        document.getElementById("playerTeam").value = "";
+        document.getElementById("playerImage").value = "";
+
+        mostrarJugadores(jugadores);
+        alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.name);
+      } catch (error) {
+        alert('Error al conectar con el servidor');
+      }
+    };
+    reader.readAsDataURL(file);
+  } else {
+    try {
+      const response = await fetch(`${API_URL}/players`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({
+          name: playerName,
+          age: playerAge,
+          position: playerPosition,
+          teamId: playerTeam,
+          teamName: equipoSeleccionado.name
+        })
+      });
+
+      if (!response.ok) {
+        alert('Error al crear jugador');
+        return;
+      }
+
+      const jugador = await response.json();
+      jugadores.unshift(jugador);
 
       document.getElementById("playerName").value = "";
       document.getElementById("playerAge").value = "";
@@ -481,30 +574,10 @@ function addPlayer() {
       document.getElementById("playerImage").value = "";
 
       mostrarJugadores(jugadores);
-      alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.nombre);
-    };
-    reader.readAsDataURL(file);
-  } else {
-    const jugador = {
-      id: Date.now(),
-      nombre: playerName,
-      edad: playerAge,
-      posicion: playerPosition,
-      equipoId: playerTeam,
-      equipoNombre: equipoSeleccionado.nombre
-    };
-
-    jugadores.push(jugador);
-    saveUserData();
-
-    document.getElementById("playerName").value = "";
-    document.getElementById("playerAge").value = "";
-    document.getElementById("playerPosition").value = "";
-    document.getElementById("playerTeam").value = "";
-    document.getElementById("playerImage").value = "";
-
-    mostrarJugadores(jugadores);
-    alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.nombre);
+      alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.name);
+    } catch (error) {
+      alert('Error al conectar con el servidor');
+    }
   }
 }
 
@@ -536,29 +609,29 @@ function mostrarJugadores(listaJugadores) {
     const playerInfo = document.createElement("div");
     playerInfo.className = "player-info";
     
-    if (jugador.imagen) {
+    if (jugador.image) {
       const img = document.createElement("img");
-      img.src = jugador.imagen;
-      img.alt = "Foto de " + jugador.nombre;
+      img.src = jugador.image;
+      img.alt = "Foto de " + jugador.name;
       img.className = "player-photo";
       playerInfo.appendChild(img);
     }
     
     const nombre = document.createElement("div");
     nombre.className = "player-name";
-    nombre.textContent = jugador.nombre;
+    nombre.textContent = jugador.name;
     
     const edad = document.createElement("div");
     edad.className = "player-edad";
-    edad.textContent = "Edad: " + jugador.edad;
+    edad.textContent = "Edad: " + jugador.age;
     
     const posicion = document.createElement("div");
     posicion.className = "player-position";
-    posicion.textContent = "Posición: " + jugador.posicion;
+    posicion.textContent = "Posición: " + jugador.position;
     
     const equipo = document.createElement("div");
     equipo.className = "player-team";
-    equipo.textContent = "Equipo: " + jugador.equipoNombre;
+    equipo.textContent = "Equipo: " + jugador.team_name;
     
     playerInfo.appendChild(nombre);
     playerInfo.appendChild(edad);
@@ -569,13 +642,13 @@ function mostrarJugadores(listaJugadores) {
     editMenu.className = "edit-menu";
     editMenu.innerHTML = `
       <div class="edit-menu-form">
-        <input type="text" id="edit-name-${jugador.id}" value="${jugador.nombre}" placeholder="Nombre del jugador">
-        <input type="number" id="edit-age-${jugador.id}" value="${jugador.edad}" placeholder="Edad" min="1" max="100">
+        <input type="text" id="edit-name-${jugador.id}" value="${jugador.name}" placeholder="Nombre del jugador">
+        <input type="number" id="edit-age-${jugador.id}" value="${jugador.age}" placeholder="Edad" min="1" max="100">
         <select id="edit-position-${jugador.id}">
-          <option value="Portero" ${jugador.posicion === 'Portero' ? 'selected' : ''}>Portero</option>
-          <option value="Defensa" ${jugador.posicion === 'Defensa' ? 'selected' : ''}>Defensa</option>
-          <option value="Medio" ${jugador.posicion === 'Medio' ? 'selected' : ''}>Medio</option>
-          <option value="Delantero" ${jugador.posicion === 'Delantero' ? 'selected' : ''}>Delantero</option>
+          <option value="Portero" ${jugador.position === 'Portero' ? 'selected' : ''}>Portero</option>
+          <option value="Defensa" ${jugador.position === 'Defensa' ? 'selected' : ''}>Defensa</option>
+          <option value="Medio" ${jugador.position === 'Medio' ? 'selected' : ''}>Medio</option>
+          <option value="Delantero" ${jugador.position === 'Delantero' ? 'selected' : ''}>Delantero</option>
         </select>
         <input type="file" id="edit-image-${jugador.id}" accept="image/*" placeholder="Cambiar imagen">
         <select id="edit-team-${jugador.id}">
@@ -601,8 +674,8 @@ function mostrarJugadores(listaJugadores) {
       equipos.forEach(function(equipo) {
         const option = document.createElement("option");
         option.value = equipo.id;
-        option.textContent = equipo.nombre;
-        if (equipo.id === jugador.equipoId) {
+        option.textContent = equipo.name;
+        if (equipo.id === jugador.team_id) {
           option.selected = true;
         }
         teamSelect.appendChild(option);
@@ -634,7 +707,7 @@ function closeEditMenu(jugadorId) {
   });
 }
 
-function savePlayer(jugadorId) {
+async function savePlayer(jugadorId) {
   const newName = document.getElementById("edit-name-" + jugadorId).value;
   const newAge = document.getElementById("edit-age-" + jugadorId).value;
   const newPosition = document.getElementById("edit-position-" + jugadorId).value;
@@ -657,52 +730,107 @@ function savePlayer(jugadorId) {
     return;
   }
 
-  const jugador = jugadores.find(function(j) {
-    return j.id === jugadorId;
-  });
-
   const equipoSeleccionado = equipos.find(function(equipo) {
     return equipo.id === newTeamId;
   });
 
   if (file) {
     const reader = new FileReader();
-    reader.onload = function(e) {
-      jugador.nombre = newName;
-      jugador.edad = newAge;
-      jugador.posicion = newPosition;
-      jugador.equipoId = newTeamId;
-      jugador.equipoNombre = equipoSeleccionado.nombre;
-      jugador.imagen = e.target.result;
+    reader.onload = async function(e) {
+      try {
+        const response = await fetch(`${API_URL}/players/${jugadorId}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
+          body: JSON.stringify({
+            name: newName,
+            age: newAge,
+            position: newPosition,
+            teamId: newTeamId,
+            teamName: equipoSeleccionado.name,
+            image: e.target.result
+          })
+        });
 
-      saveUserData();
-      mostrarJugadores(jugadores);
-      closeEditMenu(jugadorId);
-      alert("Jugador actualizado correctamente.");
+        if (!response.ok) {
+          alert('Error al actualizar jugador');
+          return;
+        }
+
+        const updatedPlayer = await response.json();
+        const index = jugadores.findIndex(j => j.id === jugadorId);
+        if (index !== -1) {
+          jugadores[index] = updatedPlayer;
+        }
+
+        mostrarJugadores(jugadores);
+        closeEditMenu(jugadorId);
+        alert("Jugador actualizado correctamente.");
+      } catch (error) {
+        alert('Error al conectar con el servidor');
+      }
     };
     reader.readAsDataURL(file);
   } else {
-    jugador.nombre = newName;
-    jugador.edad = newAge;
-    jugador.posicion = newPosition;
-    jugador.equipoId = newTeamId;
-    jugador.equipoNombre = equipoSeleccionado.nombre;
+    try {
+      const response = await fetch(`${API_URL}/players/${jugadorId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({
+          name: newName,
+          age: newAge,
+          position: newPosition,
+          teamId: newTeamId,
+          teamName: equipoSeleccionado.name
+        })
+      });
 
-    saveUserData();
-    mostrarJugadores(jugadores);
-    closeEditMenu(jugadorId);
-    alert("Jugador actualizado correctamente.");
+      if (!response.ok) {
+        alert('Error al actualizar jugador');
+        return;
+      }
+
+      const updatedPlayer = await response.json();
+      const index = jugadores.findIndex(j => j.id === jugadorId);
+      if (index !== -1) {
+        jugadores[index] = updatedPlayer;
+      }
+
+      mostrarJugadores(jugadores);
+      closeEditMenu(jugadorId);
+      alert("Jugador actualizado correctamente.");
+    } catch (error) {
+      alert('Error al conectar con el servidor');
+    }
   }
 }
 
-function deletePlayer(jugadorId) {
+async function deletePlayer(jugadorId) {
   if (confirm("¿Estás seguro de que deseas eliminar este jugador?")) {
-    jugadores = jugadores.filter(function(jugador) {
-      return jugador.id !== jugadorId;
-    });
-    saveUserData();
-    mostrarJugadores(jugadores);
-    alert("Jugador eliminado correctamente.");
+    try {
+      const response = await fetch(`${API_URL}/players/${jugadorId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        alert('Error al eliminar jugador');
+        return;
+      }
+
+      jugadores = jugadores.filter(function(jugador) {
+        return jugador.id !== jugadorId;
+      });
+      mostrarJugadores(jugadores);
+      alert("Jugador eliminado correctamente.");
+    } catch (error) {
+      alert('Error al conectar con el servidor');
+    }
   }
 }
 
@@ -729,7 +857,7 @@ function closeEditMenuTeam(equipoId) {
   });
 }
 
-function saveTeam(equipoId) {
+async function saveTeam(equipoId) {
   const newName = document.getElementById("edit-team-name-" + equipoId).value;
   const newLogoInput = document.getElementById("edit-team-logo-" + equipoId);
   const file = newLogoInput.files[0];
@@ -739,43 +867,80 @@ function saveTeam(equipoId) {
     return;
   }
 
-  const equipo = equipos.find(function(e) {
-    return e.id === equipoId;
-  });
-
   if (file) {
-    resizeImage(file, 150, 150, function(dataURL) {
-      equipo.nombre = newName;
-      equipo.logo = dataURL;
+    resizeImage(file, 150, 150, async function(dataURL) {
+      try {
+        const response = await fetch(`${API_URL}/teams/${equipoId}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
+          body: JSON.stringify({ name: newName, logo: dataURL })
+        });
+
+        if (!response.ok) {
+          alert('Error al actualizar equipo');
+          return;
+        }
+
+        const updatedTeam = await response.json();
+        const index = equipos.findIndex(e => e.id === equipoId);
+        if (index !== -1) {
+          equipos[index] = updatedTeam;
+        }
+
+        jugadores.forEach(function(jugador) {
+          if (jugador.team_id === equipoId) {
+            jugador.team_name = newName;
+          }
+        });
+
+        mostrarEquipos(equipos);
+        mostrarJugadores(jugadores);
+        loadTeamsToSelect();
+        closeEditMenuTeam(equipoId);
+        alert("Equipo actualizado correctamente.");
+      } catch (error) {
+        alert('Error al conectar con el servidor');
+      }
+    });
+  } else {
+    try {
+      const response = await fetch(`${API_URL}/teams/${equipoId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({ name: newName })
+      });
+
+      if (!response.ok) {
+        alert('Error al actualizar equipo');
+        return;
+      }
+
+      const updatedTeam = await response.json();
+      const index = equipos.findIndex(e => e.id === equipoId);
+      if (index !== -1) {
+        equipos[index] = updatedTeam;
+      }
 
       jugadores.forEach(function(jugador) {
-        if (jugador.equipoId === equipoId) {
-          jugador.equipoNombre = newName;
+        if (jugador.team_id === equipoId) {
+          jugador.team_name = newName;
         }
       });
 
-      saveUserData();
       mostrarEquipos(equipos);
       mostrarJugadores(jugadores);
       loadTeamsToSelect();
       closeEditMenuTeam(equipoId);
       alert("Equipo actualizado correctamente.");
-    });
-  } else {
-    equipo.nombre = newName;
-
-    jugadores.forEach(function(jugador) {
-      if (jugador.equipoId === equipoId) {
-        jugador.equipoNombre = newName;
-      }
-    });
-
-    saveUserData();
-    mostrarEquipos(equipos);
-    mostrarJugadores(jugadores);
-    loadTeamsToSelect();
-    closeEditMenuTeam(equipoId);
-    alert("Equipo actualizado correctamente.");
+    } catch (error) {
+      alert('Error al conectar con el servidor');
+    }
   }
 }
 
@@ -784,26 +949,24 @@ function managePlayers(equipoId) {
     return e.id === equipoId;
   });
   const playersOfTeam = jugadores.filter(function(j) {
-    return j.equipoId === equipoId;
+    return j.team_id === equipoId;
   });
 
-  let message = "Jugadores del equipo " + equipo.nombre + ":\n\n";
+  let message = "Jugadores del equipo " + equipo.name + ":\n\n";
   if (playersOfTeam.length === 0) {
     message += "No hay jugadores registrados en este equipo.";
   } else {
     playersOfTeam.forEach(function(jugador, index) {
-      message += (index + 1) + ". " + jugador.nombre + " - " + jugador.posicion + " - Edad: " + jugador.edad + "\n";
+      message += (index + 1) + ". " + jugador.name + " - " + jugador.position + " - Edad: " + jugador.age + "\n";
     });
   }
   alert(message);
 }
 
-// Cerrar modales al hacer clic fuera
 window.onclick = function(event) {
   if (event.target.classList.contains('modal')) {
     closeAllModals();
   }
 };
 
-// Inicializar autenticación al cargar la página
 document.addEventListener('DOMContentLoaded', initAuth);
