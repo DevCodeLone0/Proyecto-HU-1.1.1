@@ -138,6 +138,12 @@ async function handleLogin(event) {
     const response = await supabaseFetch('users', {
       filters: `email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(password)}`
     });
+    
+    if (!response.ok) {
+      showFormError('loginForm', 'Error al iniciar sesión');
+      return;
+    }
+    
     const users = await response.json();
     
     if (!users || users.length === 0) {
@@ -155,6 +161,7 @@ async function handleLogin(event) {
     showToast(`Bienvenido, ${escapeHtml(user.name)}!`, 'success');
   } catch (error) {
     showFormError('loginForm', 'Error al iniciar sesión');
+    console.error('Error en login:', error);
   }
 }
 
@@ -177,10 +184,16 @@ async function handleRegister(event) {
   }
   
   try {
-    const response = await supabaseFetch('users', {
+    const checkResponse = await supabaseFetch('users', {
       filters: `email=eq.${encodeURIComponent(email)}`
     });
-    const existing = await response.json();
+    
+    if (!checkResponse.ok) {
+      showFormError('registerForm', 'Error al verificar el correo');
+      return;
+    }
+    
+    const existing = await checkResponse.json();
     
     if (existing && existing.length > 0) {
       showFormError('registerForm', 'Este correo ya está registrado');
@@ -259,6 +272,12 @@ async function loadTeams() {
     const response = await supabaseFetch('teams', {
       filters: `user_id=eq.${userId}&order=created_at.desc`
     });
+    
+    if (!response.ok) {
+      showToast('Error al cargar equipos', 'error');
+      return;
+    }
+    
     const teams = await response.json();
     
     equipos = teams || [];
@@ -277,6 +296,12 @@ async function loadPlayers() {
     const response = await supabaseFetch('players', {
       filters: `user_id=eq.${userId}&order=created_at.desc`
     });
+    
+    if (!response.ok) {
+      showToast('Error al cargar jugadores', 'error');
+      return;
+    }
+    
     const players = await response.json();
     
     jugadores = players || [];
@@ -339,11 +364,18 @@ async function addTeam() {
       });
 
       if (!response.ok) {
-        showToast('Error al crear equipo', 'error');
+        const errorText = await response.text();
+        showToast(`Error al crear equipo: ${errorText}`, 'error');
         return;
       }
 
       const newTeam = await response.json();
+      
+      if (!newTeam || (Array.isArray(newTeam) && newTeam.length === 0)) {
+        showToast('Error: No se recibió respuesta del servidor', 'error');
+        return;
+      }
+
       const equipo = Array.isArray(newTeam) ? newTeam[0] : newTeam;
       equipos.unshift(equipo);
 
@@ -355,6 +387,7 @@ async function addTeam() {
       showToast(`Equipo "${escapeHtml(teamName)}" agregado correctamente.`, 'success');
     } catch (error) {
       showToast('Error al crear equipo', 'error');
+      console.error('Error en addTeam:', error);
     }
   };
 
@@ -557,6 +590,11 @@ async function addPlayer() {
     return equipo.id === playerTeam;
   });
 
+  if (!equipoSeleccionado) {
+    showToast('El equipo seleccionado no existe.', 'error');
+    return;
+  }
+
   const processPlayer = async (imageData = null) => {
     try {
       const response = await supabaseFetch('players', {
@@ -565,7 +603,7 @@ async function addPlayer() {
           user_id: userId,
           team_id: playerTeam,
           name: playerName,
-          age: playerAge,
+          age: parseInt(playerAge, 10),
           position: playerPosition,
           team_name: equipoSeleccionado.name,
           ...(imageData && { image: imageData })
@@ -573,7 +611,19 @@ async function addPlayer() {
         headers: { 'Prefer': 'return=representation' }
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        showToast(`Error al crear jugador: ${errorText}`, 'error');
+        return;
+      }
+
       const newPlayer = await response.json();
+      
+      if (!newPlayer || (Array.isArray(newPlayer) && newPlayer.length === 0)) {
+        showToast('Error: No se recibió respuesta del servidor', 'error');
+        return;
+      }
+
       const jugador = Array.isArray(newPlayer) ? newPlayer[0] : newPlayer;
       jugadores.unshift(jugador);
 
@@ -587,6 +637,7 @@ async function addPlayer() {
       showToast(`Jugador "${escapeHtml(playerName)}" agregado correctamente al equipo ${escapeHtml(equipoSeleccionado.name)}`, 'success');
     } catch (error) {
       showToast('Error al crear jugador', 'error');
+      console.error('Error en addPlayer:', error);
     }
   };
 
@@ -752,9 +803,14 @@ async function savePlayer(jugadorId) {
     return equipo.id === newTeamId;
   });
 
+  if (!equipoSeleccionado) {
+    showToast('El equipo seleccionado no existe.', 'error');
+    return;
+  }
+
   const updateData = {
     name: newName,
-    age: newAge,
+    age: parseInt(newAge, 10),
     position: newPosition,
     team_id: newTeamId,
     team_name: equipoSeleccionado.name
@@ -774,11 +830,17 @@ async function performPlayerUpdate(jugadorId, updateData) {
   try {
     const userId = localStorage.getItem('footballUserId');
     
-    await supabaseFetch('players', {
+    const response = await supabaseFetch('players', {
       method: 'PATCH',
       filters: `id=eq.${jugadorId}&user_id=eq.${userId}`,
       body: updateData
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      showToast(`Error al actualizar jugador: ${errorText}`, 'error');
+      return;
+    }
 
     const index = jugadores.findIndex(j => j.id === jugadorId);
     if (index !== -1) {
@@ -861,18 +923,28 @@ async function performTeamUpdate(equipoId, updateData) {
   try {
     const userId = localStorage.getItem('footballUserId');
     
-    await supabaseFetch('teams', {
+    const teamResponse = await supabaseFetch('teams', {
       method: 'PATCH',
       filters: `id=eq.${equipoId}&user_id=eq.${userId}`,
       body: updateData
     });
 
+    if (!teamResponse.ok) {
+      const errorText = await teamResponse.text();
+      showToast(`Error al actualizar equipo: ${errorText}`, 'error');
+      return;
+    }
+
     if (updateData.name) {
-      await supabaseFetch('players', {
+      const playersResponse = await supabaseFetch('players', {
         method: 'PATCH',
         filters: `team_id=eq.${equipoId}&user_id=eq.${userId}`,
         body: { team_name: updateData.name }
       });
+
+      if (!playersResponse.ok) {
+        console.warn('Error al actualizar nombres de jugadores en caché local');
+      }
       
       jugadores.forEach(function(jugador) {
         if (jugador.team_id === equipoId) {
