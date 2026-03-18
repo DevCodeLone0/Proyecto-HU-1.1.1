@@ -15,6 +15,14 @@
         <h1>Gestion De Equipos de Futbol</h1>
         <h3>Dimayor</h3>
     </div>
+    <div class="header-auth" id="headerAuth">
+        <button type="button" class="auth-btn" id="btnLoginHeader" onclick="showLoginModal()">Iniciar Sesión</button>
+        <button type="button" class="auth-btn auth-btn--register" id="btnRegisterHeader" onclick="showRegisterModal()">Registrarse</button>
+    </div>
+    <div class="header-user" id="headerUser" style="display: none;">
+        <span class="user-welcome" id="userWelcome"></span>
+        <button type="button" class="auth-btn" id="btnLogout" onclick="logout()">Cerrar Sesión</button>
+    </div>
 </header>
 
 <body>
@@ -100,6 +108,55 @@
             <p id="noResults" class="no-results" style="display:none;">No se encontraron equipos con ese nombre.</p>
         </section>
     </main>
+
+    <!-- Modal Login -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('loginModal')">&times;</span>
+            <h2>Iniciar Sesión</h2>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="loginEmail">Correo electrónico:</label>
+                    <input type="email" id="loginEmail" placeholder="tu@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Contraseña:</label>
+                    <input type="password" id="loginPassword" placeholder="Tu contraseña" required>
+                </div>
+                <button type="submit" class="btn-submit">Entrar</button>
+            </form>
+            <p class="modal-switch">¿No tienes cuenta? <a href="#" onclick="switchToRegister()">Regístrate</a></p>
+        </div>
+    </div>
+
+    <!-- Modal Registro -->
+    <div id="registerModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('registerModal')">&times;</span>
+            <h2>Crear Cuenta</h2>
+            <form id="registerForm" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label for="registerName">Nombre:</label>
+                    <input type="text" id="registerName" placeholder="Tu nombre" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerEmail">Correo electrónico:</label>
+                    <input type="email" id="registerEmail" placeholder="tu@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Contraseña:</label>
+                    <input type="password" id="registerPassword" placeholder="Mínimo 6 caracteres" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="registerPasswordConfirm">Confirmar contraseña:</label>
+                    <input type="password" id="registerPasswordConfirm" placeholder="Repite la contraseña" required>
+                </div>
+                <button type="submit" class="btn-submit">Crear Cuenta</button>
+            </form>
+            <p class="modal-switch">¿Ya tienes cuenta? <a href="#" onclick="switchToLogin()">Inicia sesión</a></p>
+        </div>
+    </div>
+
     <script src="Index.JS"></script>
 </body>
 </html>
