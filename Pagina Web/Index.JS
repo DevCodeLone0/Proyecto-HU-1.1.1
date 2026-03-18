@@ -1,13 +1,11 @@
+const SUPABASE_URL = 'https://ocuoxlfltaelrojdkbdf.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_VD9fF-BmNxuxuyhuBKT_UA_plcEV7TF';
+
 let currentUser = null;
-let users = [];
 
 function initAuth() {
-  const storedUsers = localStorage.getItem('footballUsers');
   const storedSession = localStorage.getItem('footballCurrentUser');
-  
-  if (storedUsers) {
-    users = JSON.parse(storedUsers);
-  }
+  const storedUserId = localStorage.getItem('footballUserId');
   
   if (storedSession) {
     currentUser = JSON.parse(storedSession);
@@ -16,15 +14,13 @@ function initAuth() {
   }
 }
 
-function saveUsers() {
-  localStorage.setItem('footballUsers', JSON.stringify(users));
-}
-
 function saveSession() {
   if (currentUser) {
     localStorage.setItem('footballCurrentUser', JSON.stringify(currentUser));
+    localStorage.setItem('footballUserId', currentUser.id);
   } else {
     localStorage.removeItem('footballCurrentUser');
+    localStorage.removeItem('footballUserId');
   }
 }
 
@@ -80,28 +76,42 @@ function switchToLogin() {
   showLoginModal();
 }
 
-function handleLogin(event) {
+async function handleLogin(event) {
   event.preventDefault();
   
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
   
-  const user = users.find(u => u.email === email && u.password === password);
-  
-  if (user) {
+  try {
+    const users = await fetch(
+      `${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(password)}`,
+      {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      }
+    ).then(r => r.json());
+    
+    if (!users || users.length === 0) {
+      showFormError('loginForm', 'Credenciales inválidas');
+      return;
+    }
+    
+    const user = users[0];
     currentUser = { id: user.id, name: user.name, email: user.email };
     saveSession();
     updateHeaderAuth();
-    loadUserData();
+    await loadUserData();
     closeModal('loginModal');
     document.getElementById('loginForm').reset();
     alert('Bienvenido, ' + user.name + '!');
-  } else {
-    showFormError('loginForm', 'Correo o contraseña incorrectos');
+  } catch (error) {
+    showFormError('loginForm', 'Error al iniciar sesión');
   }
 }
 
-function handleRegister(event) {
+async function handleRegister(event) {
   event.preventDefault();
   
   const name = document.getElementById('registerName').value.trim();
@@ -114,30 +124,57 @@ function handleRegister(event) {
     return;
   }
   
-  if (users.some(u => u.email === email)) {
-    showFormError('registerForm', 'Este correo ya está registrado');
+  if (password.length < 6) {
+    showFormError('registerForm', 'La contraseña debe tener al menos 6 caracteres');
     return;
   }
   
-  const newUser = {
-    id: Date.now(),
-    name: name,
-    email: email,
-    password: password,
-    teams: [],
-    players: []
-  };
-  
-  users.push(newUser);
-  saveUsers();
-  
-  currentUser = { id: newUser.id, name: newUser.name, email: newUser.email };
-  saveSession();
-  updateHeaderAuth();
-  loadUserData();
-  closeModal('registerModal');
-  document.getElementById('registerForm').reset();
-  alert('Cuenta creada exitosamente. ¡Bienvenido, ' + name + '!');
+  try {
+    const existing = await fetch(
+      `${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}`,
+      {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      }
+    ).then(r => r.json());
+    
+    if (existing && existing.length > 0) {
+      showFormError('registerForm', 'Este correo ya está registrado');
+      return;
+    }
+    
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify({ name, email, password })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      showFormError('registerForm', 'Error: ' + errorText);
+      return;
+    }
+
+    const newUser = await response.json();
+    const user = Array.isArray(newUser) ? newUser[0] : newUser;
+    
+    currentUser = { id: user.id, name: user.name, email: user.email };
+    saveSession();
+    updateHeaderAuth();
+    await loadUserData();
+    closeModal('registerModal');
+    document.getElementById('registerForm').reset();
+    alert('Cuenta creada exitosamente. ¡Bienvenido, ' + name + '!');
+  } catch (error) {
+    showFormError('registerForm', 'Error al crear cuenta');
+  }
 }
 
 function showFormError(formId, message) {
@@ -164,27 +201,61 @@ function logout() {
   }
 }
 
-function getCurrentUserData() {
-  return users.find(u => u.id === currentUser.id);
+function checkAuth() {
+  if (!currentUser) {
+    alert('Debes iniciar sesión para agregar equipos.');
+    showLoginModal();
+    return false;
+  }
+  return true;
 }
 
-function saveUserData() {
-  const userIndex = users.findIndex(u => u.id === currentUser.id);
-  if (userIndex !== -1) {
-    users[userIndex].teams = equipos;
-    users[userIndex].players = jugadores;
-    saveUsers();
+async function loadUserData() {
+  await Promise.all([loadTeams(), loadPlayers()]);
+}
+
+async function loadTeams() {
+  const userId = localStorage.getItem('footballUserId');
+  if (!userId) return;
+  
+  try {
+    const teams = await fetch(
+      `${SUPABASE_URL}/rest/v1/teams?user_id=eq.${userId}&order=created_at.desc`,
+      {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      }
+    ).then(r => r.json());
+    
+    equipos = teams || [];
+    mostrarEquipos(equipos);
+    loadTeamsToSelect();
+  } catch (error) {
+    alert('Error al cargar equipos');
   }
 }
 
-function loadUserData() {
-  const userData = getCurrentUserData();
-  if (userData) {
-    equipos = userData.teams || [];
-    jugadores = userData.players || [];
-    mostrarEquipos(equipos);
+async function loadPlayers() {
+  const userId = localStorage.getItem('footballUserId');
+  if (!userId) return;
+  
+  try {
+    const players = await fetch(
+      `${SUPABASE_URL}/rest/v1/players?user_id=eq.${userId}&order=created_at.desc`,
+      {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      }
+    ).then(r => r.json());
+    
+    jugadores = players || [];
     mostrarJugadores(jugadores);
-    loadTeamsToSelect();
+  } catch (error) {
+    alert('Error al cargar jugadores');
   }
 }
 
@@ -194,15 +265,6 @@ function clearUserData() {
   mostrarEquipos(equipos);
   mostrarJugadores(jugadores);
   loadTeamsToSelect();
-}
-
-function checkAuth() {
-  if (!currentUser) {
-    alert('Debes iniciar sesión para agregar equipos.');
-    showLoginModal();
-    return false;
-  }
-  return true;
 }
 
 let equipos = [];
@@ -227,12 +289,13 @@ function resizeImage(file, maxWidth, maxHeight, callback) {
   reader.readAsDataURL(file);
 }
 
-function addTeam() {
+async function addTeam() {
   if (!checkAuth()) return;
   
   const teamName = document.getElementById("teamName").value;
   const teamLogoInput = document.getElementById("teamLogo");
   const file = teamLogoInput.files[0];
+  const userId = localStorage.getItem('footballUserId');
 
   if (!teamName) {
     alert("Por favor ingrese un nombre de equipo.");
@@ -240,15 +303,66 @@ function addTeam() {
   }
 
   if (file) {
-    resizeImage(file, 150, 150, function(dataURL) {
-      const equipo = {
-        id: Date.now(),
-        nombre: teamName,
-        logo: dataURL
-      };
+    resizeImage(file, 150, 150, async function(dataURL) {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/teams`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            name: teamName,
+            logo: dataURL
+          })
+        });
 
-      equipos.push(equipo);
-      saveUserData();
+        if (!response.ok) {
+          alert('Error al crear equipo');
+          return;
+        }
+
+        const newTeam = await response.json();
+        const equipo = Array.isArray(newTeam) ? newTeam[0] : newTeam;
+        equipos.unshift(equipo);
+
+        document.getElementById("teamName").value = "";
+        document.getElementById("teamLogo").value = "";
+
+        mostrarEquipos(equipos);
+        loadTeamsToSelect();
+        alert("Equipo " + teamName + " agregado correctamente.");
+      } catch (error) {
+        alert('Error al crear equipo');
+      }
+    });
+  } else {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/teams`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          name: teamName
+        })
+      });
+
+      if (!response.ok) {
+        alert('Error al crear equipo');
+        return;
+      }
+
+      const newTeam = await response.json();
+      const equipo = Array.isArray(newTeam) ? newTeam[0] : newTeam;
+      equipos.unshift(equipo);
 
       document.getElementById("teamName").value = "";
       document.getElementById("teamLogo").value = "";
@@ -256,23 +370,9 @@ function addTeam() {
       mostrarEquipos(equipos);
       loadTeamsToSelect();
       alert("Equipo " + teamName + " agregado correctamente.");
-    });
-  } else {
-    const equipo = {
-      id: Date.now(),
-      nombre: teamName,
-      logo: ""
-    };
-
-    equipos.push(equipo);
-    saveUserData();
-
-    document.getElementById("teamName").value = "";
-    document.getElementById("teamLogo").value = "";
-
-    mostrarEquipos(equipos);
-    loadTeamsToSelect();
-    alert("Equipo " + teamName + " agregado correctamente.");
+    } catch (error) {
+      alert('Error al crear equipo');
+    }
   }
 }
 
@@ -282,7 +382,7 @@ function mostrarEquipos(listaEquipos) {
   
   teamList.innerHTML = "";
 
-  if (listaEquipos.length === 0) {
+  if (!listaEquipos || listaEquipos.length === 0) {
     noResults.style.display = "block";
     teamList.innerHTML = "";
     return;
@@ -300,11 +400,11 @@ function mostrarEquipos(listaEquipos) {
     } else {
       img.src = equipo.logo;
     }
-    img.alt = "Logo de " + equipo.nombre;
+    img.alt = "Logo de " + equipo.name;
     img.className = "team-logo";
 
     const nombre = document.createElement("h4");
-    nombre.textContent = equipo.nombre;
+    nombre.textContent = equipo.name;
     
     const editBtn = document.createElement("button");
     editBtn.type = "button";
@@ -326,14 +426,14 @@ function mostrarEquipos(listaEquipos) {
     editMenu.className = "edit-menu-team";
     editMenu.innerHTML = `
       <div class="edit-menu-form">
-        <input type="text" id="edit-team-name-${equipo.id}" value="${equipo.nombre}" placeholder="Nombre del equipo">
+        <input type="text" id="edit-team-name-${equipo.id}" value="${equipo.name}" placeholder="Nombre del equipo">
         <input type="file" id="edit-team-logo-${equipo.id}" accept="image/*" placeholder="Cambiar logo">
       </div>
       <div class="edit-menu-actions">
-        <button type="button" class="btn-save" onclick="saveTeam(${equipo.id})">Guardar</button>
-        <button type="button" class="btn-cancel" onclick="closeEditMenuTeam(${equipo.id})">Cancelar</button>
+        <button type="button" class="btn-save" onclick="saveTeam('${equipo.id}')">Guardar</button>
+        <button type="button" class="btn-cancel" onclick="closeEditMenuTeam('${equipo.id}')">Cancelar</button>
       </div>
-      <button type="button" class="btn-manage-players" onclick="managePlayers(${equipo.id})">Ver Jugadores</button>
+      <button type="button" class="btn-manage-players" onclick="managePlayers('${equipo.id}')">Ver Jugadores</button>
     `;
     
     teamCard.appendChild(img);
@@ -359,48 +459,73 @@ function searchTeams() {
   }
 
   const equiposFiltrados = equipos.filter(function(equipo) {
-    return equipo.nombre.toLowerCase().includes(searchValue);
+    return equipo.name.toLowerCase().includes(searchValue);
   });
 
   mostrarEquipos(equiposFiltrados);
 }
 
-function eliminarEquipo(equipoId) {
+async function eliminarEquipo(equipoId) {
   const equipo = equipos.find(function(e) {
     return e.id === equipoId;
   });
   const playersOfTeam = jugadores.filter(function(jugador) {
-    return jugador.equipoId === equipoId;
+    return jugador.team_id === equipoId;
   });
 
-  let message = "¿Estás seguro de que deseas eliminar el equipo '" + equipo.nombre + "'?";
+  let message = "¿Estás seguro de que deseas eliminar el equipo '" + equipo.name + "'?";
   if (playersOfTeam.length > 0) {
     message += "\n\nEsto también eliminará los siguientes jugadores asociados:\n";
     playersOfTeam.forEach(function(jugador, index) {
-      message += (index + 1) + ". " + jugador.nombre + "\n";
+      message += (index + 1) + ". " + jugador.name + "\n";
     });
   }
 
   if (confirm(message)) {
-    equipos = equipos.filter(function(equipo) {
-      return equipo.id !== equipoId;
-    });
+    try {
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/players?team_id=eq.${equipoId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        }
+      );
+      
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/teams?id=eq.${equipoId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        }
+      );
 
-    jugadores = jugadores.filter(function(jugador) {
-      return jugador.equipoId !== equipoId;
-    });
+      equipos = equipos.filter(function(equipo) {
+        return equipo.id !== equipoId;
+      });
 
-    saveUserData();
-    mostrarEquipos(equipos);
-    mostrarJugadores(jugadores);
-    loadTeamsToSelect();
+      jugadores = jugadores.filter(function(jugador) {
+        return jugador.team_id !== equipoId;
+      });
 
-    const playerTeamSelect = document.getElementById("playerTeam");
-    if (playerTeamSelect && playerTeamSelect.value === equipoId.toString()) {
-      playerTeamSelect.value = "";
+      mostrarEquipos(equipos);
+      mostrarJugadores(jugadores);
+      loadTeamsToSelect();
+
+      const playerTeamSelect = document.getElementById("playerTeam");
+      if (playerTeamSelect && playerTeamSelect.value === equipoId.toString()) {
+        playerTeamSelect.value = "";
+      }
+
+      alert("Equipo y sus jugadores eliminados correctamente.");
+    } catch (error) {
+      alert('Error al eliminar equipo');
     }
-
-    alert("Equipo y sus jugadores eliminados correctamente.");
   }
 }
 
@@ -413,20 +538,21 @@ function loadTeamsToSelect() {
   equipos.forEach(function(equipo) {
     const option = document.createElement("option");
     option.value = equipo.id;
-    option.textContent = equipo.nombre;
+    option.textContent = equipo.name;
     playerTeamSelect.appendChild(option);
   });
 }
 
-function addPlayer() {
+async function addPlayer() {
   if (!checkAuth()) return;
   
   const playerName = document.getElementById("playerName").value;
   const playerAge = document.getElementById("playerAge").value;
   const playerPosition = document.getElementById("playerPosition").value;
-  const playerTeam = parseInt(document.getElementById("playerTeam").value);
+  const playerTeam = document.getElementById("playerTeam").value;
   const playerImageInput = document.getElementById("playerImage");
   const file = playerImageInput.files[0];
+  const userId = localStorage.getItem('footballUserId');
 
   if (!playerName) {
     alert("Por favor ingrese el nombre del jugador.");
@@ -454,19 +580,67 @@ function addPlayer() {
 
   if (file) {
     const reader = new FileReader();
-    reader.onload = function(e) {
-      const jugador = {
-        id: Date.now(),
-        nombre: playerName,
-        edad: playerAge,
-        posicion: playerPosition,
-        equipoId: playerTeam,
-        equipoNombre: equipoSeleccionado.nombre,
-        imagen: e.target.result
-      };
+    reader.onload = async function(e) {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/players`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            team_id: playerTeam,
+            name: playerName,
+            age: playerAge,
+            position: playerPosition,
+            team_name: equipoSeleccionado.name,
+            image: e.target.result
+          })
+        });
 
-      jugadores.push(jugador);
-      saveUserData();
+        const newPlayer = await response.json();
+        const jugador = Array.isArray(newPlayer) ? newPlayer[0] : newPlayer;
+        jugadores.unshift(jugador);
+
+        document.getElementById("playerName").value = "";
+        document.getElementById("playerAge").value = "";
+        document.getElementById("playerPosition").value = "";
+        document.getElementById("playerTeam").value = "";
+        document.getElementById("playerImage").value = "";
+
+        mostrarJugadores(jugadores);
+        alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.name);
+      } catch (error) {
+        alert('Error al crear jugador');
+      }
+    };
+    reader.readAsDataURL(file);
+  } else {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/players`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          team_id: playerTeam,
+          name: playerName,
+          age: playerAge,
+          position: playerPosition,
+          team_name: equipoSeleccionado.name
+        })
+      });
+
+      const newPlayer = await response.json();
+      const jugador = Array.isArray(newPlayer) ? newPlayer[0] : newPlayer;
+      jugadores.unshift(jugador);
 
       document.getElementById("playerName").value = "";
       document.getElementById("playerAge").value = "";
@@ -475,30 +649,10 @@ function addPlayer() {
       document.getElementById("playerImage").value = "";
 
       mostrarJugadores(jugadores);
-      alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.nombre);
-    };
-    reader.readAsDataURL(file);
-  } else {
-    const jugador = {
-      id: Date.now(),
-      nombre: playerName,
-      edad: playerAge,
-      posicion: playerPosition,
-      equipoId: playerTeam,
-      equipoNombre: equipoSeleccionado.nombre
-    };
-
-    jugadores.push(jugador);
-    saveUserData();
-
-    document.getElementById("playerName").value = "";
-    document.getElementById("playerAge").value = "";
-    document.getElementById("playerPosition").value = "";
-    document.getElementById("playerTeam").value = "";
-    document.getElementById("playerImage").value = "";
-
-    mostrarJugadores(jugadores);
-    alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.nombre);
+      alert("Jugador " + playerName + " agregado correctamente al equipo " + equipoSeleccionado.name);
+    } catch (error) {
+      alert('Error al crear jugador');
+    }
   }
 }
 
@@ -510,7 +664,7 @@ function mostrarJugadores(listaJugadores) {
   
   playersList.innerHTML = "";
 
-  if (listaJugadores.length === 0) {
+  if (!listaJugadores || listaJugadores.length === 0) {
     noPlayersResults.style.display = "block";
     playersList.innerHTML = "";
     return;
@@ -530,29 +684,29 @@ function mostrarJugadores(listaJugadores) {
     const playerInfo = document.createElement("div");
     playerInfo.className = "player-info";
     
-    if (jugador.imagen) {
+    if (jugador.image) {
       const img = document.createElement("img");
-      img.src = jugador.imagen;
-      img.alt = "Foto de " + jugador.nombre;
+      img.src = jugador.image;
+      img.alt = "Foto de " + jugador.name;
       img.className = "player-photo";
       playerInfo.appendChild(img);
     }
     
     const nombre = document.createElement("div");
     nombre.className = "player-name";
-    nombre.textContent = jugador.nombre;
+    nombre.textContent = jugador.name;
     
     const edad = document.createElement("div");
     edad.className = "player-edad";
-    edad.textContent = "Edad: " + jugador.edad;
+    edad.textContent = "Edad: " + jugador.age;
     
     const posicion = document.createElement("div");
     posicion.className = "player-position";
-    posicion.textContent = "Posición: " + jugador.posicion;
+    posicion.textContent = "Posición: " + jugador.position;
     
     const equipo = document.createElement("div");
     equipo.className = "player-team";
-    equipo.textContent = "Equipo: " + jugador.equipoNombre;
+    equipo.textContent = "Equipo: " + jugador.team_name;
     
     playerInfo.appendChild(nombre);
     playerInfo.appendChild(edad);
@@ -563,13 +717,13 @@ function mostrarJugadores(listaJugadores) {
     editMenu.className = "edit-menu";
     editMenu.innerHTML = `
       <div class="edit-menu-form">
-        <input type="text" id="edit-name-${jugador.id}" value="${jugador.nombre}" placeholder="Nombre del jugador">
-        <input type="number" id="edit-age-${jugador.id}" value="${jugador.edad}" placeholder="Edad" min="1" max="100">
+        <input type="text" id="edit-name-${jugador.id}" value="${jugador.name}" placeholder="Nombre del jugador">
+        <input type="number" id="edit-age-${jugador.id}" value="${jugador.age}" placeholder="Edad" min="1" max="100">
         <select id="edit-position-${jugador.id}">
-          <option value="Portero" ${jugador.posicion === 'Portero' ? 'selected' : ''}>Portero</option>
-          <option value="Defensa" ${jugador.posicion === 'Defensa' ? 'selected' : ''}>Defensa</option>
-          <option value="Medio" ${jugador.posicion === 'Medio' ? 'selected' : ''}>Medio</option>
-          <option value="Delantero" ${jugador.posicion === 'Delantero' ? 'selected' : ''}>Delantero</option>
+          <option value="Portero" ${jugador.position === 'Portero' ? 'selected' : ''}>Portero</option>
+          <option value="Defensa" ${jugador.position === 'Defensa' ? 'selected' : ''}>Defensa</option>
+          <option value="Medio" ${jugador.position === 'Medio' ? 'selected' : ''}>Medio</option>
+          <option value="Delantero" ${jugador.position === 'Delantero' ? 'selected' : ''}>Delantero</option>
         </select>
         <input type="file" id="edit-image-${jugador.id}" accept="image/*" placeholder="Cambiar imagen">
         <select id="edit-team-${jugador.id}">
@@ -577,10 +731,10 @@ function mostrarJugadores(listaJugadores) {
         </select>
       </div>
       <div class="edit-menu-actions">
-        <button type="button" class="btn-save" onclick="savePlayer(${jugador.id})">Guardar</button>
-        <button type="button" class="btn-cancel" onclick="closeEditMenu(${jugador.id})">Cancelar</button>
+        <button type="button" class="btn-save" onclick="savePlayer('${jugador.id}')">Guardar</button>
+        <button type="button" class="btn-cancel" onclick="closeEditMenu('${jugador.id}')">Cancelar</button>
       </div>
-      <button type="button" class="btn-delete" onclick="deletePlayer(${jugador.id})">Eliminar</button>
+      <button type="button" class="btn-delete" onclick="deletePlayer('${jugador.id}')">Eliminar</button>
     `;
     
     playerItem.appendChild(playerInfo);
@@ -595,8 +749,8 @@ function mostrarJugadores(listaJugadores) {
       equipos.forEach(function(equipo) {
         const option = document.createElement("option");
         option.value = equipo.id;
-        option.textContent = equipo.nombre;
-        if (equipo.id === jugador.equipoId) {
+        option.textContent = equipo.name;
+        if (equipo.id === jugador.team_id) {
           option.selected = true;
         }
         teamSelect.appendChild(option);
@@ -628,11 +782,11 @@ function closeEditMenu(jugadorId) {
   });
 }
 
-function savePlayer(jugadorId) {
+async function savePlayer(jugadorId) {
   const newName = document.getElementById("edit-name-" + jugadorId).value;
   const newAge = document.getElementById("edit-age-" + jugadorId).value;
   const newPosition = document.getElementById("edit-position-" + jugadorId).value;
-  const newTeamId = parseInt(document.getElementById("edit-team-" + jugadorId).value);
+  const newTeamId = document.getElementById("edit-team-" + jugadorId).value;
   const newImageInput = document.getElementById("edit-image-" + jugadorId);
   const file = newImageInput.files[0];
 
@@ -651,52 +805,82 @@ function savePlayer(jugadorId) {
     return;
   }
 
-  const jugador = jugadores.find(function(j) {
-    return j.id === jugadorId;
-  });
-
   const equipoSeleccionado = equipos.find(function(equipo) {
     return equipo.id === newTeamId;
   });
 
+  const updateData = {
+    name: newName,
+    age: newAge,
+    position: newPosition,
+    team_id: newTeamId,
+    team_name: equipoSeleccionado.name
+  };
+
   if (file) {
     const reader = new FileReader();
-    reader.onload = function(e) {
-      jugador.nombre = newName;
-      jugador.edad = newAge;
-      jugador.posicion = newPosition;
-      jugador.equipoId = newTeamId;
-      jugador.equipoNombre = equipoSeleccionado.nombre;
-      jugador.imagen = e.target.result;
-
-      saveUserData();
-      mostrarJugadores(jugadores);
-      closeEditMenu(jugadorId);
-      alert("Jugador actualizado correctamente.");
+    reader.onload = async function(e) {
+      updateData.image = e.target.result;
+      await performPlayerUpdate(jugadorId, updateData);
     };
     reader.readAsDataURL(file);
   } else {
-    jugador.nombre = newName;
-    jugador.edad = newAge;
-    jugador.posicion = newPosition;
-    jugador.equipoId = newTeamId;
-    jugador.equipoNombre = equipoSeleccionado.nombre;
-
-    saveUserData();
-    mostrarJugadores(jugadores);
-    closeEditMenu(jugadorId);
-    alert("Jugador actualizado correctamente.");
+    await performPlayerUpdate(jugadorId, updateData);
   }
 }
 
-function deletePlayer(jugadorId) {
-  if (confirm("¿Estás seguro de que deseas eliminar este jugador?")) {
-    jugadores = jugadores.filter(function(jugador) {
-      return jugador.id !== jugadorId;
-    });
-    saveUserData();
+async function performPlayerUpdate(jugadorId, updateData) {
+  try {
+    const userId = localStorage.getItem('footballUserId');
+    
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/players?id=eq.${jugadorId}&user_id=eq.${userId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      }
+    );
+
+    const index = jugadores.findIndex(j => j.id === jugadorId);
+    if (index !== -1) {
+      jugadores[index] = { ...jugadores[index], ...updateData };
+    }
+
     mostrarJugadores(jugadores);
-    alert("Jugador eliminado correctamente.");
+    closeEditMenu(jugadorId);
+    alert("Jugador actualizado correctamente.");
+  } catch (error) {
+    alert('Error al actualizar jugador');
+  }
+}
+
+async function deletePlayer(jugadorId) {
+  if (confirm("¿Estás seguro de que deseas eliminar este jugador?")) {
+    try {
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/players?id=eq.${jugadorId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        }
+      );
+
+      jugadores = jugadores.filter(function(jugador) {
+        return jugador.id !== jugadorId;
+      });
+      mostrarJugadores(jugadores);
+      alert("Jugador eliminado correctamente.");
+    } catch (error) {
+      alert('Error al eliminar jugador');
+    }
   }
 }
 
@@ -723,7 +907,7 @@ function closeEditMenuTeam(equipoId) {
   });
 }
 
-function saveTeam(equipoId) {
+async function saveTeam(equipoId) {
   const newName = document.getElementById("edit-team-name-" + equipoId).value;
   const newLogoInput = document.getElementById("edit-team-logo-" + equipoId);
   const file = newLogoInput.files[0];
@@ -733,43 +917,68 @@ function saveTeam(equipoId) {
     return;
   }
 
-  const equipo = equipos.find(function(e) {
-    return e.id === equipoId;
-  });
+  const updateData = { name: newName };
 
   if (file) {
-    resizeImage(file, 150, 150, function(dataURL) {
-      equipo.nombre = newName;
-      equipo.logo = dataURL;
-
-      jugadores.forEach(function(jugador) {
-        if (jugador.equipoId === equipoId) {
-          jugador.equipoNombre = newName;
-        }
-      });
-
-      saveUserData();
-      mostrarEquipos(equipos);
-      mostrarJugadores(jugadores);
-      loadTeamsToSelect();
-      closeEditMenuTeam(equipoId);
-      alert("Equipo actualizado correctamente.");
+    resizeImage(file, 150, 150, async function(dataURL) {
+      updateData.logo = dataURL;
+      await performTeamUpdate(equipoId, updateData);
     });
   } else {
-    equipo.nombre = newName;
+    await performTeamUpdate(equipoId, updateData);
+  }
+}
 
-    jugadores.forEach(function(jugador) {
-      if (jugador.equipoId === equipoId) {
-        jugador.equipoNombre = newName;
+async function performTeamUpdate(equipoId, updateData) {
+  try {
+    const userId = localStorage.getItem('footballUserId');
+    
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/teams?id=eq.${equipoId}&user_id=eq.${userId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
       }
-    });
+    );
 
-    saveUserData();
+    if (updateData.name) {
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/players?team_id=eq.${equipoId}&user_id=eq.${userId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ team_name: updateData.name })
+        }
+      );
+      
+      jugadores.forEach(function(jugador) {
+        if (jugador.team_id === equipoId) {
+          jugador.team_name = updateData.name;
+        }
+      });
+    }
+
+    const index = equipos.findIndex(e => e.id === equipoId);
+    if (index !== -1) {
+      equipos[index] = { ...equipos[index], ...updateData };
+    }
+
     mostrarEquipos(equipos);
     mostrarJugadores(jugadores);
     loadTeamsToSelect();
     closeEditMenuTeam(equipoId);
     alert("Equipo actualizado correctamente.");
+  } catch (error) {
+    alert('Error al actualizar equipo');
   }
 }
 
@@ -778,15 +987,15 @@ function managePlayers(equipoId) {
     return e.id === equipoId;
   });
   const playersOfTeam = jugadores.filter(function(j) {
-    return j.equipoId === equipoId;
+    return j.team_id === equipoId;
   });
 
-  let message = "Jugadores del equipo " + equipo.nombre + ":\n\n";
+  let message = "Jugadores del equipo " + equipo.name + ":\n\n";
   if (playersOfTeam.length === 0) {
     message += "No hay jugadores registrados en este equipo.";
   } else {
     playersOfTeam.forEach(function(jugador, index) {
-      message += (index + 1) + ". " + jugador.nombre + " - " + jugador.posicion + " - Edad: " + jugador.edad + "\n";
+      message += (index + 1) + ". " + jugador.name + " - " + jugador.position + " - Edad: " + jugador.age + "\n";
     });
   }
   alert(message);
