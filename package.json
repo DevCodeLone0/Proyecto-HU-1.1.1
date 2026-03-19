@@ -1,0 +1,27 @@
+{
+  "name": "proyecto-hu-1.1.1",
+  "version": "1.0.0",
+  "description": "Sistema web para gestionar equipos de fútbol y sus jugadores, con autenticación de usuarios y base de datos en la nube.",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DevCodeLone0/Proyecto-HU-1.1.1.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/DevCodeLone0/Proyecto-HU-1.1.1/issues"
+  },
+  "homepage": "https://github.com/DevCodeLone0/Proyecto-HU-1.1.1#readme",
+  "devDependencies": {
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0",
+    "jsdom": "^29.0.0"
+  }
+}
